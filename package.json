@@ -1,0 +1,53 @@
+{
+  "name": "pi-cast",
+  "version": "0.1.0",
+  "description": "Mail for pi sessions — send briefs, findings, and handoffs between live sessions, future sessions, and processes, delivered straight into the receiving agent's context.",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "messaging",
+    "mailbox",
+    "handoff",
+    "multi-agent",
+    "cross-session"
+  ],
+  "license": "MIT",
+  "author": "Vieko Franetovic",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vieko/pi-cast.git"
+  },
+  "type": "module",
+  "bin": {
+    "pi-cast": "./bin/pi-cast.mjs"
+  },
+  "files": [
+    "extensions",
+    "src",
+    "bin",
+    "DESIGN.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test \"test/*.test.ts\"",
+    "check": "npm run typecheck && npm run test"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions/pi-cast.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": ">=0.1.0"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.7.0"
+  }
+}
