@@ -41,8 +41,21 @@ jobs:
             echo "tag v$tag does not match pi-post version $pkg" >&2
             exit 1
           fi
+      # Skip publish when this exact version is already on the registry
+      # (e.g. a retroactive tag for a manually published release); still
+      # cut the GitHub release below.
+      - name: Check whether this version is already published
+        id: published
+        run: |
+          pkg="$(node -p "require('./package.json').version")"
+          if npm view "pi-post@$pkg" version --registry https://registry.npmjs.org >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
       # OIDC trusted publishing: no NODE_AUTH_TOKEN, no OTP; provenance is automatic.
       - run: npm publish
+        if: steps.published.outputs.exists == 'false'
       - name: GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
