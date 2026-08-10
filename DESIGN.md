@@ -72,7 +72,8 @@ One letter per file, named `<sentAt ms, 13 digits>-<8 hex nonce>.json`:
    error listing candidates, never a guess.
 2. Sender writes `<inbox>/<name>.json.tmp`, then renames into place. A
    draining reader never observes a partial letter.
-3. If a live session owns that inbox, the sender waits up to 1.5 s for the
+3. If a live session owns that inbox — its own session address, or a
+   standing address its cwd claims — the sender waits up to 1.5 s for the
    file to vanish and reports **delivered**; otherwise **queued**.
 4. The receiver drains oldest-first, unlinking each letter as it reads it.
    Nothing is delivered twice; consumption is the receipt.

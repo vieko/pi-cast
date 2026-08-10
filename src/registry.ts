@@ -80,6 +80,11 @@ export function presence(record: SessionRecord): Presence {
   return record.pid !== undefined && pidAlive(record.pid) ? "live" : "offline";
 }
 
+/** True when a live session's cwd claims this standing address. */
+export function standingClaimedLive(root: string, standingAddress: string): boolean {
+  return listRecords(root).some((r) => r.standing === standingAddress && presence(r) === "live");
+}
+
 /** Remove registry records for sessions that are offline and stale. Mail is never touched. */
 export function sweepRegistry(root: string, maxAgeMs = 30 * 24 * 60 * 60 * 1000): void {
   const now = Date.now();

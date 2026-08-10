@@ -10,7 +10,7 @@ export function formatDelivery(letter: Letter): string {
   const where = letter.from.cwd ? ` (${letter.from.cwd})` : "";
   const kind = letter.from.kind === "process" ? "process" : "pi session";
   const reply = letter.replyTo
-    ? `Reply with send_mail to ${letter.replyTo}.`
+    ? `Reply with send_letter to ${letter.replyTo}.`
     : "This letter carries no reply address.";
   return [
     `Letter from ${kind} ${letter.from.name}${where}:`,

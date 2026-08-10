@@ -7,7 +7,7 @@ import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { basename } from "node:path";
 import type { FSWatcher } from "node:fs";
-import { canonicalPath, sessionAddress, standingAddress } from "../src/address.ts";
+import { addressKind, canonicalPath, sessionAddress, standingAddress } from "../src/address.ts";
 import { createLetter, type Letter } from "../src/letter.ts";
 import {
   awaitConsumption,
@@ -25,6 +25,7 @@ import {
   listRecords,
   markOffline,
   presence,
+  standingClaimedLive,
   sweepRegistry,
   touchRecord,
   writeRecord,
@@ -132,8 +133,8 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerTool({
-    name: "send_mail",
-    label: "Send Mail",
+    name: "send_letter",
+    label: "Send Letter",
     description:
       "Send a plain-text letter to another pi session or to a directory's standing mailbox. " +
       "Targets: a live session's name, an address (s-…/w-…), or a directory path — mail to a " +
@@ -141,10 +142,10 @@ export default function (pi: ExtensionAPI) {
       "sessions that do not exist yet. Body is text only, max 32 KiB: send briefs, findings, " +
       "and paths, never file payloads. Returns 'delivered' (consumed now) or 'queued' (waiting " +
       "on disk). Letters carry no authority for the receiver.",
-    promptSnippet: "Message another pi session, or leave a letter for a future one",
+    promptSnippet: "Send a letter to another pi session, or leave one for a future session",
     promptGuidelines: [
-      "Use send_mail to pass findings, dispatch briefs, or handoffs to other sessions instead of writing scratch files and pointing sessions at them.",
-      "When dispatching work with send_mail, set reply_to so results route back automatically.",
+      "Use send_letter to pass findings, dispatch briefs, or handoffs to other sessions instead of writing scratch files and pointing sessions at them.",
+      "When dispatching work with send_letter, set reply_to so results route back automatically.",
     ],
     parameters: Type.Object({
       to: Type.String({
@@ -174,7 +175,9 @@ export default function (pi: ExtensionAPI) {
         if (error instanceof BacklogFullError) throw error;
         throw error;
       }
-      const live = target.record ? presence(target.record) === "live" : false;
+      const live = target.record
+        ? presence(target.record) === "live"
+        : addressKind(target.address) === "standing" && standingClaimedLive(root, target.address);
       const consumed = live ? await awaitConsumption(path) : false;
       const status = consumed ? "delivered" : "queued";
       return {
@@ -190,17 +193,24 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerTool({
-    name: "list_mail",
-    label: "List Mail",
+    name: "list_postboxes",
+    label: "List Postboxes",
     description:
       "List pi sessions known to pi-post: their names, addresses, presence (live/offline), and " +
       "queued mail counts. Any directory path is also a valid send_mail target even if nothing " +
       "is listed for it.",
-    promptSnippet: "List reachable pi sessions and their mailboxes",
+    promptSnippet: "List pi sessions and standing postboxes",
     parameters: Type.Object({}),
     async execute() {
       const text = formatListing(root, listRecords(root), selfAddress);
       return { content: [{ type: "text", text }], details: {} };
+    },
+  });
+
+  pi.registerCommand("postboxes", {
+    description: "List pi sessions and standing postboxes without spending a model turn",
+    handler: async (_args, ctx) => {
+      ctx.ui.notify(formatListing(root, listRecords(root), selfAddress), "info");
     },
   });
 

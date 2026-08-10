@@ -5,7 +5,7 @@ findings, and handoffs between live sessions, **future sessions**, and
 processes — delivered straight into the receiving agent's context.
 
 ```
- ✓ send_mail   Queued for ~/dev/gtm (w-e8f14204d058).
+ ✓ send_letter   Queued for ~/dev/gtm (w-e8f14204d058).
 ```
 
 The receiving session gets the text at a safe point in its turn, marked as
@@ -42,9 +42,9 @@ before any session does, so you can mail a worktree you just created or
 "the next session on this repo". Startup drains both; a queued handoff
 lands in-context on the first turn.
 
-**Two tools.** `send_mail` sends text to a session, path, or address and
+**Two tools.** `send_letter` sends text to a session, path, or address and
 reports **delivered** (consumed now) or **queued** (waiting on disk).
-`list_mail` shows known sessions, presence, and queued mail. `/inbox`
+`list_postboxes` shows known sessions, presence, and queued mail. `/inbox`
 peeks without consuming.
 
 **A CLI for everything that isn't a pi session.** `pi-post send` lets an
@@ -68,9 +68,10 @@ Nothing to enable; every session registers itself on startup.
 
 | Surface | Effect |
 |---|---|
-| `send_mail` (tool) | Send text to a session, path, or address; reports **delivered** or **queued** |
-| `list_mail` (tool) | Known sessions, presence, queued mail counts |
+| `send_letter` (tool) | Send text to a session, path, or address; reports **delivered** or **queued** |
+| `list_postboxes` (tool) | Known sessions, presence, queued mail counts |
 | `/inbox` | Peek at this session's queued letters without consuming them |
+| `/postboxes` | The `list_postboxes` listing, without spending a model turn |
 | `pi-post send` (CLI) | Send from any process: `--to`, `--body`/stdin, `--from`, `--reply-to` |
 | `pi-post list` / `peek` / `whoami` (CLI) | Inspect the registry, a mailbox, or your own address |
 
@@ -97,7 +98,7 @@ pi-post send --to "$PI_POST_REPLY_TO" --from "golem:gtmeng-2573" \
 Mail first, spawn second — the brief is waiting when the worker starts:
 
 ```bash
-# 1. (in the directing session) send_mail to ~/dev/repo-worktree with the brief
+# 1. (in the directing session) send_letter to ~/dev/repo-worktree with the brief
 # 2. spawn:
 git worktree add ~/dev/repo-worktree -b fix/cache
 cd ~/dev/repo-worktree && pi "check your mail and begin"
@@ -134,7 +135,7 @@ words; summoning stays yours.
 ```markdown
 ## Cross-session mail (pi-post)
 
-Use send_mail instead of writing handoff files to scratch: dispatch briefs
+Use send_letter instead of writing handoff files to scratch: dispatch briefs
 go to the worker's worktree path before spawning it; results go to the
 letter's reply address; loose ends for a future session go to the repo
 path. State summaries still belong in project memory, and durable issues

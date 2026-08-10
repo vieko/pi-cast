@@ -183,7 +183,10 @@ async function send(args) {
   writeFileSync(`${path}.tmp`, JSON.stringify(letter), { mode: 0o600 });
   renameSync(`${path}.tmp`, path);
 
-  const live = target.record ? isLive(target.record) : false;
+  const live = target.record
+    ? isLive(target.record)
+    : target.address.startsWith("w-") &&
+      listRecords().some((r) => r.standing === target.address && isLive(r));
   let consumed = false;
   if (live) {
     const deadline = Date.now() + 1500;

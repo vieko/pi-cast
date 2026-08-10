@@ -10,6 +10,7 @@ import {
   markOffline,
   presence,
   readRecord,
+  standingClaimedLive,
   sweepRegistry,
   writeRecord,
   type SessionRecord,
@@ -49,6 +50,16 @@ test("a dead pid reads as offline even if shutdown never ran", () => {
   // use an implausible pid instead.
   writeRecord(root, record({ pid: 2 ** 30 }));
   assert.equal(presence(readRecord(root, "s-aaaaaaaaaaaa")!), "offline");
+});
+
+test("a standing address counts as live only while a live session's cwd claims it", () => {
+  const root = newRoot();
+  writeRecord(root, record({ standing: "w-cccccccccccc", pid: process.pid }));
+  assert.equal(standingClaimedLive(root, "w-cccccccccccc"), true);
+  assert.equal(standingClaimedLive(root, "w-dddddddddddd"), false);
+
+  markOffline(root, "s-aaaaaaaaaaaa");
+  assert.equal(standingClaimedLive(root, "w-cccccccccccc"), false);
 });
 
 test("sweep removes only stale offline records, and mail is never touched", () => {
