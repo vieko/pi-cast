@@ -1,9 +1,9 @@
 import { randomBytes } from "node:crypto";
 
-export const LETTER_VERSION = 1;
+export const MESSAGE_VERSION = 1;
 export const MAX_BODY_BYTES = 32 * 1024;
 
-export interface LetterFrom {
+export interface MessageFrom {
   kind: "session" | "process";
   /** Human-readable sender label, e.g. "gtm-summoner" or "golem:gtmeng-2573". */
   name: string;
@@ -12,11 +12,11 @@ export interface LetterFrom {
   cwd?: string;
 }
 
-export interface Letter {
-  v: typeof LETTER_VERSION;
+export interface Message {
+  v: typeof MESSAGE_VERSION;
   /** Matches the filename stem: `<sentAt ms, 13 digits>-<8 hex nonce>`. */
   id: string;
-  from: LetterFrom;
+  from: MessageFrom;
   /** Address results should be sent to. Pinned at dispatch. */
   replyTo?: string;
   sentAt: number;
@@ -25,28 +25,28 @@ export interface Letter {
 
 export class BodyTooLargeError extends Error {
   constructor(bytes: number) {
-    super(`letter body is ${bytes} bytes; the cap is ${MAX_BODY_BYTES} (send a summary and a path, not a payload)`);
+    super(`message body is ${bytes} bytes; the cap is ${MAX_BODY_BYTES} (send a summary and a path, not a payload)`);
     this.name = "BodyTooLargeError";
   }
 }
 
-export function createLetter(input: {
-  from: LetterFrom;
+export function createMessage(input: {
+  from: MessageFrom;
   body: string;
   replyTo?: string;
   now?: number;
-}): Letter {
+}): Message {
   const bytes = Buffer.byteLength(input.body, "utf8");
   if (bytes > MAX_BODY_BYTES) throw new BodyTooLargeError(bytes);
   const sentAt = input.now ?? Date.now();
   const id = `${String(sentAt).padStart(13, "0")}-${randomBytes(4).toString("hex")}`;
-  const letter: Letter = { v: LETTER_VERSION, id, from: input.from, sentAt, body: input.body };
-  if (input.replyTo) letter.replyTo = input.replyTo;
-  return letter;
+  const message: Message = { v: MESSAGE_VERSION, id, from: input.from, sentAt, body: input.body };
+  if (input.replyTo) message.replyTo = input.replyTo;
+  return message;
 }
 
-/** Parse and validate raw JSON into a Letter. Returns null for anything malformed. */
-export function parseLetter(raw: string): Letter | null {
+/** Parse and validate raw JSON into a Message. Returns null for anything malformed. */
+export function parseMessage(raw: string): Message | null {
   let value: unknown;
   try {
     value = JSON.parse(raw);
@@ -55,7 +55,7 @@ export function parseLetter(raw: string): Letter | null {
   }
   if (typeof value !== "object" || value === null) return null;
   const l = value as Record<string, unknown>;
-  if (l.v !== LETTER_VERSION) return null;
+  if (l.v !== MESSAGE_VERSION) return null;
   if (typeof l.id !== "string" || typeof l.sentAt !== "number" || typeof l.body !== "string") return null;
   if (Buffer.byteLength(l.body as string, "utf8") > MAX_BODY_BYTES) return null;
   const from = l.from as Record<string, unknown> | undefined;
@@ -65,5 +65,5 @@ export function parseLetter(raw: string): Letter | null {
   if (from.address !== undefined && typeof from.address !== "string") return null;
   if (from.cwd !== undefined && typeof from.cwd !== "string") return null;
   if (l.replyTo !== undefined && typeof l.replyTo !== "string") return null;
-  return value as Letter;
+  return value as Message;
 }

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createLetter } from "../src/letter.ts";
+import { createMessage } from "../src/message.ts";
 import { deposit, queuedCount } from "../src/mailbox.ts";
 import {
   listRecords,
@@ -69,7 +69,7 @@ test("sweep removes only stale offline records, and mail is never touched", () =
   writeRecord(root, record()); // live, keeps its record
 
   // Stale session still has queued mail in its inbox.
-  deposit(root, "s-bbbbbbbbbbbb", createLetter({ from: { kind: "process", name: "t" }, body: "waits" }));
+  deposit(root, "s-bbbbbbbbbbbb", createMessage({ from: { kind: "process", name: "t" }, body: "waits" }));
 
   sweepRegistry(root);
 

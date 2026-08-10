@@ -60,8 +60,8 @@ the tag, with the gate green (`npm ci && npm run check`).
 
 ## Wire format discipline
 
-`src/letter.ts` + `src/address.ts` and `bin/pi-post.mjs` implement the same
+`src/message.ts` + `src/address.ts` and `bin/pi-post.mjs` implement the same
 wire contract independently (the CLI must run under bare node). Any release
-that touches the letter schema or address derivation must change **both**,
-keep `test/cli.test.ts` green, and bump the letter `v` if the change is not
+that touches the message schema or address derivation must change **both**,
+keep `test/cli.test.ts` green, and bump the message `v` if the change is not
 backward compatible.

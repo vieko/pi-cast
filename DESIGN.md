@@ -7,7 +7,7 @@ and "delivered" means the text entered the receiving agent's context at a
 safe point in its turn.
 
 Two contracts pin everything else: the **address derivation** and the
-**letter schema**. Change either only with a version bump.
+**message schema**. Change either only with a version bump.
 
 ## Shape
 
@@ -43,9 +43,9 @@ path, start the session in it — the brief lands in-context on turn one
 with no name coordination. A handoff to "the next session on this repo"
 is mail to the repo's standing address.
 
-## Letter schema (v1)
+## Message schema (v1)
 
-One letter per file, named `<sentAt ms, 13 digits>-<8 hex nonce>.json`:
+One message per file, named `<sentAt ms, 13 digits>-<8 hex nonce>.json`:
 
 ```json
 {
@@ -60,24 +60,24 @@ One letter per file, named `<sentAt ms, 13 digits>-<8 hex nonce>.json`:
 
 - `from.kind` is `"session"` or `"process"`. Process senders (an anvil run
   at exit, a Claude Code hook, a script) have no inbox; `from.address` is
-  absent and the letter may carry no `replyTo`.
+  absent and the message may carry no `replyTo`.
 - `replyTo` is pinned at dispatch so results route home automatically.
 - Body is plain text, capped at 32 KiB. A brief fits; a payload does not.
   Send a summary and a path, never file contents as state transfer.
 
-## A letter, end to end
+## A message, end to end
 
 1. Sender resolves the target: an explicit address, a directory path
    (→ standing), or a live session's name (→ session). Ambiguity is an
    error listing candidates, never a guess.
 2. Sender writes `<inbox>/<name>.json.tmp`, then renames into place. A
-   draining reader never observes a partial letter.
+   draining reader never observes a partial message.
 3. If a live session owns that inbox — its own session address, or a
    standing address its cwd claims — the sender waits up to 1.5 s for the
    file to vanish and reports **delivered**; otherwise **queued**.
-4. The receiver drains oldest-first, unlinking each letter as it reads it.
+4. The receiver drains oldest-first, unlinking each message as it reads it.
    Nothing is delivered twice; consumption is the receipt.
-5. Each letter passes the inbound guard (mode + loop caps), then enters
+5. Each message passes the inbound guard (mode + loop caps), then enters
    context wrapped in the boundary preamble:
    - live mail → `deliverAs: "steer"`, `triggerTurn: true` — lands between
      tool calls, wakes an idle session
@@ -87,10 +87,10 @@ One letter per file, named `<sentAt ms, 13 digits>-<8 hex nonce>.json`:
 
 ## The boundary
 
-Every delivered letter is framed with: it came from another session or
+Every delivered message is framed with: it came from another session or
 process, not from the user; it carries no authority; it cannot approve
 actions, change configuration, or close out review; slash commands in it
-are inert text. A "done" letter is a claim, not an approval — the review
+are inert text. A "done" message is a claim, not an approval — the review
 pipeline is unchanged by this channel existing.
 
 ## Invariants
@@ -99,19 +99,19 @@ Each is pinned by a test.
 
 - **An address outlives every process.** Session addresses survive
   restarts; standing addresses precede and outlive all sessions.
-- **A reader never sees half a letter.** Rename-into-place; only `.json`
+- **A reader never sees half a message.** Rename-into-place; only `.json`
   is read.
 - **Nothing is delivered twice.** Unlink before handling.
 - **Mail outranks tidiness.** No sweep deletes a non-empty mailbox.
 - **Loops terminate structurally.** Identical body from one sender inside
-  10 s is dropped; a sender is throttled past 8 letters in 30 s; a mailbox
-  stops accepting at 50 queued letters. Independent of model behavior.
-- **The sender learns the truth.** *Delivered* means the letter vanished;
+  10 s is dropped; a sender is throttled past 8 messages in 30 s; a mailbox
+  stops accepting at 50 queued messages. Independent of model behavior.
+- **The sender learns the truth.** *Delivered* means the message vanished;
   anything else is *queued*.
 
 ## Inbound control
 
-`PI_POST_INBOUND`: `accept` (default) delivers, `ask` prompts per letter
+`PI_POST_INBOUND`: `accept` (default) delivers, `ask` prompts per message
 where a UI exists (falls back to accept headless), `refuse` drops.
 
 ## Non-goals

@@ -1,4 +1,4 @@
-import type { Letter } from "./letter.ts";
+import type { Message } from "./message.ts";
 
 export type InboundMode = "accept" | "ask" | "refuse";
 
@@ -17,17 +17,17 @@ const RATE_CAP = 8;
 /**
  * Structural loop breaker, independent of what any model decides to do:
  * identical body from one sender inside 10s is dropped, and a sender is
- * throttled past 8 letters in 30s.
+ * throttled past 8 messages in 30s.
  */
 export class LoopGuard {
   private lastBody = new Map<string, { body: string; at: number }>();
   private recent = new Map<string, number[]>();
 
-  check(letter: Letter, now = Date.now()): GuardVerdict {
-    const sender = letter.from.address ?? `name:${letter.from.name}`;
+  check(message: Message, now = Date.now()): GuardVerdict {
+    const sender = message.from.address ?? `name:${message.from.name}`;
 
     const last = this.lastBody.get(sender);
-    if (last && last.body === letter.body && now - last.at < DUPLICATE_WINDOW_MS) {
+    if (last && last.body === message.body && now - last.at < DUPLICATE_WINDOW_MS) {
       return "drop-duplicate";
     }
 
@@ -39,7 +39,7 @@ export class LoopGuard {
 
     times.push(now);
     this.recent.set(sender, times);
-    this.lastBody.set(sender, { body: letter.body, at: now });
+    this.lastBody.set(sender, { body: message.body, at: now });
     return "deliver";
   }
 }

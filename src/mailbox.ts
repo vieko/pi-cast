@@ -11,14 +11,14 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { parseLetter, type Letter } from "./letter.ts";
+import { parseMessage, type Message } from "./message.ts";
 
-/** A mailbox stops accepting at this many queued letters. */
+/** A mailbox stops accepting at this many queued messages. */
 export const BACKLOG_CAP = 50;
 
 export class BacklogFullError extends Error {
   constructor(address: string) {
-    super(`mailbox ${address} holds ${BACKLOG_CAP} unread letters; not accepting more`);
+    super(`mailbox ${address} holds ${BACKLOG_CAP} unread messages; not accepting more`);
     this.name = "BacklogFullError";
   }
 }
@@ -42,7 +42,7 @@ export function ensureDirs(root: string, address?: string): void {
   if (address) mkdirSync(inboxDir(root, address), { recursive: true, mode: 0o700 });
 }
 
-function letterFiles(dir: string): string[] {
+function messageFiles(dir: string): string[] {
   let names: string[];
   try {
     names = readdirSync(dir);
@@ -53,30 +53,30 @@ function letterFiles(dir: string): string[] {
 }
 
 /**
- * Deposit a letter into an address's inbox. Writes `.tmp` then renames into
- * place, so a draining reader never observes a partial letter. Returns the
+ * Deposit a message into an address's inbox. Writes `.tmp` then renames into
+ * place, so a draining reader never observes a partial message. Returns the
  * final path (used to await consumption).
  */
-export function deposit(root: string, address: string, letter: Letter): string {
+export function deposit(root: string, address: string, message: Message): string {
   const dir = inboxDir(root, address);
   mkdirSync(dir, { recursive: true, mode: 0o700 });
-  if (letterFiles(dir).length >= BACKLOG_CAP) throw new BacklogFullError(address);
-  const path = join(dir, `${letter.id}.json`);
+  if (messageFiles(dir).length >= BACKLOG_CAP) throw new BacklogFullError(address);
+  const path = join(dir, `${message.id}.json`);
   const tmp = `${path}.tmp`;
-  writeFileSync(tmp, JSON.stringify(letter), { mode: 0o600 });
+  writeFileSync(tmp, JSON.stringify(message), { mode: 0o600 });
   renameSync(tmp, path);
   return path;
 }
 
 /**
- * Drain an inbox oldest-first. Each letter is unlinked *before* it is
+ * Drain an inbox oldest-first. Each message is unlinked *before* it is
  * returned, so nothing is ever delivered twice. Malformed files are removed
  * and skipped. ENOENT races (another drain won) are tolerated silently.
  */
-export function drain(root: string, address: string): Letter[] {
+export function drain(root: string, address: string): Message[] {
   const dir = inboxDir(root, address);
-  const letters: Letter[] = [];
-  for (const name of letterFiles(dir)) {
+  const messages: Message[] = [];
+  for (const name of messageFiles(dir)) {
     const path = join(dir, name);
     let raw: string;
     try {
@@ -89,33 +89,33 @@ export function drain(root: string, address: string): Letter[] {
     } catch {
       continue; // lost the race after reading; treat as not ours
     }
-    const letter = parseLetter(raw);
-    if (letter) letters.push(letter);
+    const message = parseMessage(raw);
+    if (message) messages.push(message);
   }
-  return letters;
+  return messages;
 }
 
-/** List queued letters without consuming them. Reading has no side effects. */
-export function peek(root: string, address: string): Letter[] {
+/** List queued messages without consuming them. Reading has no side effects. */
+export function peek(root: string, address: string): Message[] {
   const dir = inboxDir(root, address);
-  const letters: Letter[] = [];
-  for (const name of letterFiles(dir)) {
+  const messages: Message[] = [];
+  for (const name of messageFiles(dir)) {
     try {
-      const letter = parseLetter(readFileSync(join(dir, name), "utf8"));
-      if (letter) letters.push(letter);
+      const message = parseMessage(readFileSync(join(dir, name), "utf8"));
+      if (message) messages.push(message);
     } catch {
       // raced away; ignore
     }
   }
-  return letters;
+  return messages;
 }
 
 export function queuedCount(root: string, address: string): number {
-  return letterFiles(inboxDir(root, address)).length;
+  return messageFiles(inboxDir(root, address)).length;
 }
 
 /**
- * Wait for a deposited letter to be consumed. Resolves true (delivered) when
+ * Wait for a deposited message to be consumed. Resolves true (delivered) when
  * the file vanishes within `timeoutMs`, false (queued) otherwise.
  */
 export function awaitConsumption(path: string, timeoutMs = 1500): Promise<boolean> {
@@ -131,7 +131,7 @@ export function awaitConsumption(path: string, timeoutMs = 1500): Promise<boolea
 }
 
 /**
- * Watch an inbox and fire `onMail` (debounced) when letters arrive. The
+ * Watch an inbox and fire `onMail` (debounced) when messages arrive. The
  * callback should drain; it may fire spuriously. Returns the watcher for
  * cleanup in `session_shutdown`.
  */

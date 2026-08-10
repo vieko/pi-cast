@@ -3,7 +3,7 @@
  * pi-post CLI — the deposit half of pi-post for processes that are not pi
  * sessions: anvil runs at exit, Claude Code hooks, CI, shell scripts.
  *
- * Standalone on purpose: it duplicates the letter/address contract from
+ * Standalone on purpose: it duplicates the message/address contract from
  * src/ (which is TypeScript) so it runs under bare node. test/cli.test.ts
  * pins that both sides stay in agreement.
  *
@@ -164,7 +164,7 @@ async function send(args) {
   };
 
   const sentAt = Date.now();
-  const letter = {
+  const message = {
     v: 1,
     id: `${String(sentAt).padStart(13, "0")}-${randomBytes(4).toString("hex")}`,
     from,
@@ -177,10 +177,10 @@ async function send(args) {
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   const queued = readdirSync(dir).filter((n) => n.endsWith(".json"));
   if (queued.length >= BACKLOG_CAP) {
-    fail(`mailbox ${target.address} holds ${BACKLOG_CAP} unread letters; not accepting more`);
+    fail(`mailbox ${target.address} holds ${BACKLOG_CAP} unread messages; not accepting more`);
   }
-  const path = join(dir, `${letter.id}.json`);
-  writeFileSync(`${path}.tmp`, JSON.stringify(letter), { mode: 0o600 });
+  const path = join(dir, `${message.id}.json`);
+  writeFileSync(`${path}.tmp`, JSON.stringify(message), { mode: 0o600 });
   renameSync(`${path}.tmp`, path);
 
   const live = target.record
@@ -199,7 +199,7 @@ async function send(args) {
     }
     if (!existsSync(path)) consumed = true;
   }
-  console.log(`${consumed ? "delivered" : "queued"} ${target.address} ${letter.id}`);
+  console.log(`${consumed ? "delivered" : "queued"} ${target.address} ${message.id}`);
 }
 
 function list() {
@@ -237,9 +237,9 @@ function peek(args) {
   }
   for (const name of names) {
     try {
-      const letter = JSON.parse(readFileSync(join(dir, name), "utf8"));
-      const preview = letter.body.length > 80 ? `${letter.body.slice(0, 80)}…` : letter.body;
-      console.log(`${new Date(letter.sentAt).toISOString()} ${letter.from.name}: ${preview.replaceAll("\n", " ")}`);
+      const message = JSON.parse(readFileSync(join(dir, name), "utf8"));
+      const preview = message.body.length > 80 ? `${message.body.slice(0, 80)}…` : message.body;
+      console.log(`${new Date(message.sentAt).toISOString()} ${message.from.name}: ${preview.replaceAll("\n", " ")}`);
     } catch {
       // raced away or malformed; skip
     }

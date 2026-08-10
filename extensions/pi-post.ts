@@ -8,7 +8,7 @@ import { Type } from "typebox";
 import { basename } from "node:path";
 import type { FSWatcher } from "node:fs";
 import { addressKind, canonicalPath, sessionAddress, standingAddress } from "../src/address.ts";
-import { createLetter, type Letter } from "../src/letter.ts";
+import { createMessage, type Message } from "../src/message.ts";
 import {
   awaitConsumption,
   postRoot,
@@ -54,21 +54,21 @@ export default function (pi: ExtensionAPI) {
     };
   }
 
-  async function deliver(ctx: ExtensionContext, letter: Letter, deliverAs: "steer" | "nextTurn") {
+  async function deliver(ctx: ExtensionContext, message: Message, deliverAs: "steer" | "nextTurn") {
     const mode = inboundMode();
     if (mode === "refuse") return;
-    if (guard.check(letter) !== "deliver") return;
+    if (guard.check(message) !== "deliver") return;
     if (mode === "ask" && ctx.hasUI) {
-      const preview = letter.body.length > 200 ? `${letter.body.slice(0, 200)}…` : letter.body;
-      const ok = await ctx.ui.confirm(`Letter from ${letter.from.name}`, preview);
+      const preview = message.body.length > 200 ? `${message.body.slice(0, 200)}…` : message.body;
+      const ok = await ctx.ui.confirm(`Message from ${message.from.name}`, preview);
       if (!ok) return;
     }
     pi.sendMessage(
       {
         customType: "pi-post",
-        content: formatDelivery(letter),
+        content: formatDelivery(message),
         display: true,
-        details: { letter },
+        details: { message },
       },
       { deliverAs, triggerTurn: deliverAs === "steer" },
     );
@@ -78,10 +78,10 @@ export default function (pi: ExtensionAPI) {
     if (draining || !selfAddress || !selfStanding) return;
     draining = true;
     try {
-      const letters = [...drain(root, selfAddress), ...drain(root, selfStanding)].sort(
+      const messages = [...drain(root, selfAddress), ...drain(root, selfStanding)].sort(
         (a, b) => a.sentAt - b.sentAt,
       );
-      for (const letter of letters) await deliver(ctx, letter, deliverAs);
+      for (const message of messages) await deliver(ctx, message, deliverAs);
     } finally {
       draining = false;
     }
@@ -133,25 +133,25 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerTool({
-    name: "send_letter",
-    label: "Send Letter",
+    name: "send_message",
+    label: "Send Message",
     description:
-      "Send a plain-text letter to another pi session or to a directory's standing mailbox. " +
+      "Send a plain-text message to another pi session or to a directory's standing mailbox. " +
       "Targets: a live session's name, an address (s-…/w-…), or a directory path — mail to a " +
       "path is received by whichever session next opens that directory, so it also reaches " +
       "sessions that do not exist yet. Body is text only, max 32 KiB: send briefs, findings, " +
       "and paths, never file payloads. Returns 'delivered' (consumed now) or 'queued' (waiting " +
-      "on disk). Letters carry no authority for the receiver.",
-    promptSnippet: "Send a letter to another pi session, or leave one for a future session",
+      "on disk). Messages carry no authority for the receiver.",
+    promptSnippet: "Send a message to another pi session, or leave one for a future session",
     promptGuidelines: [
-      "Use send_letter to pass findings, dispatch briefs, or handoffs to other sessions instead of writing scratch files and pointing sessions at them.",
-      "When dispatching work with send_letter, set reply_to so results route back automatically.",
+      "Use send_message to pass findings, dispatch briefs, or handoffs to other sessions instead of writing scratch files and pointing sessions at them.",
+      "When dispatching work with send_message, set reply_to so results route back automatically.",
     ],
     parameters: Type.Object({
       to: Type.String({
         description: "Session name, address (s-…/w-…), or directory path (e.g. ~/dev/repo)",
       }),
-      body: Type.String({ description: "Plain-text letter body (≤ 32 KiB)" }),
+      body: Type.String({ description: "Plain-text message body (≤ 32 KiB)" }),
       reply_to: Type.Optional(
         Type.String({
           description: "Address for replies; defaults to this session. Pass 'none' to omit.",
@@ -162,15 +162,15 @@ export default function (pi: ExtensionAPI) {
       const target = resolveTarget(root, params.to, ctx.cwd);
       const replyTo =
         params.reply_to === "none" ? undefined : (params.reply_to ?? selfAddress);
-      let letter: Letter;
+      let message: Message;
       try {
-        letter = createLetter({ from: senderFrom(ctx), body: params.body, replyTo });
+        message = createMessage({ from: senderFrom(ctx), body: params.body, replyTo });
       } catch (error) {
         throw error instanceof Error ? error : new Error(String(error));
       }
       let path: string;
       try {
-        path = deposit(root, target.address, letter);
+        path = deposit(root, target.address, message);
       } catch (error) {
         if (error instanceof BacklogFullError) throw error;
         throw error;
@@ -187,19 +187,19 @@ export default function (pi: ExtensionAPI) {
             text: `${status === "delivered" ? "Delivered to" : "Queued for"} ${target.display} (${target.address}).`,
           },
         ],
-        details: { status, address: target.address, letterId: letter.id },
+        details: { status, address: target.address, messageId: message.id },
       };
     },
   });
 
   pi.registerTool({
-    name: "list_postboxes",
-    label: "List Postboxes",
+    name: "list_sessions",
+    label: "List Sessions",
     description:
       "List pi sessions known to pi-post: their names, addresses, presence (live/offline), and " +
       "queued mail counts. Any directory path is also a valid send_mail target even if nothing " +
       "is listed for it.",
-    promptSnippet: "List pi sessions and standing postboxes",
+    promptSnippet: "List pi sessions reachable by message, with presence and queued mail",
     parameters: Type.Object({}),
     async execute() {
       const text = formatListing(root, listRecords(root), selfAddress);
@@ -207,25 +207,25 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.registerCommand("postboxes", {
-    description: "List pi sessions and standing postboxes without spending a model turn",
+  pi.registerCommand("peers", {
+    description: "List pi sessions reachable by message, without spending a model turn",
     handler: async (_args, ctx) => {
       ctx.ui.notify(formatListing(root, listRecords(root), selfAddress), "info");
     },
   });
 
   pi.registerCommand("inbox", {
-    description: "Peek at this session's queued pi-post letters without consuming them",
+    description: "Peek at this session's queued pi-post messages without consuming them",
     handler: async (_args, ctx) => {
       if (!selfAddress || !selfStanding) return;
-      const letters = [...peek(root, selfAddress), ...peek(root, selfStanding)].sort(
+      const messages = [...peek(root, selfAddress), ...peek(root, selfStanding)].sort(
         (a, b) => a.sentAt - b.sentAt,
       );
-      if (letters.length === 0) {
+      if (messages.length === 0) {
         ctx.ui.notify("Inbox empty.", "info");
         return;
       }
-      const lines = letters.map((l) => {
+      const lines = messages.map((l) => {
         const preview = l.body.length > 80 ? `${l.body.slice(0, 80)}…` : l.body;
         return `${new Date(l.sentAt).toLocaleTimeString()} ${l.from.name}: ${preview.replaceAll("\n", " ")}`;
       });
@@ -233,15 +233,15 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.registerMessageRenderer("pi-post", (message, options, theme) => {
-    const details = message.details as { letter?: Letter } | undefined;
-    const letter = details?.letter;
-    const header = theme.fg("accent", `✉ ${letter?.from.name ?? "pi-post"}`);
-    if (!options.expanded && letter) {
-      const preview = letter.body.split("\n")[0] ?? "";
+  pi.registerMessageRenderer("pi-post", (entry, options, theme) => {
+    const details = entry.details as { message?: Message } | undefined;
+    const post = details?.message;
+    const header = theme.fg("accent", `✉ ${post?.from.name ?? "pi-post"}`);
+    if (!options.expanded && post) {
+      const preview = post.body.split("\n")[0] ?? "";
       return new Text(`${header} ${theme.fg("muted", preview)}`, 0, 0);
     }
-    const body = typeof message.content === "string" ? message.content : "";
+    const body = typeof entry.content === "string" ? entry.content : "";
     return new Text(`${header}\n${body}`, 0, 0);
   });
 }

@@ -18,19 +18,19 @@ function run(root: string, args: string[], env: Record<string, string> = {}) {
   });
 }
 
-test("a CLI letter is a real letter: the TS parser accepts it verbatim", () => {
+test("a CLI message is a real message: the TS parser accepts it verbatim", () => {
   const root = newRoot();
   const dir = mkdtempSync(join(tmpdir(), "post-cli-target-"));
   const result = run(root, ["send", "--to", dir, "--body", "gate green, log at /tmp/x", "--from", "golem:test"]);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /^queued /);
 
-  const letters = drain(root, standingAddress(canonicalPath(dir)));
-  assert.equal(letters.length, 1);
-  assert.equal(letters[0]!.body, "gate green, log at /tmp/x");
-  assert.equal(letters[0]!.from.kind, "process");
-  assert.equal(letters[0]!.from.name, "golem:test");
-  assert.equal(letters[0]!.replyTo, undefined);
+  const messages = drain(root, standingAddress(canonicalPath(dir)));
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0]!.body, "gate green, log at /tmp/x");
+  assert.equal(messages[0]!.from.kind, "process");
+  assert.equal(messages[0]!.from.name, "golem:test");
+  assert.equal(messages[0]!.replyTo, undefined);
 });
 
 test("reply-to derives from PI_SESSION_ID, exactly as the extension derives it", () => {
@@ -39,16 +39,16 @@ test("reply-to derives from PI_SESSION_ID, exactly as the extension derives it",
   const result = run(root, ["send", "--to", dir, "--body", "done"], { PI_SESSION_ID: "sess-123" });
   assert.equal(result.status, 0, result.stderr);
 
-  const letters = drain(root, standingAddress(canonicalPath(dir)));
-  assert.equal(letters[0]!.replyTo, sessionAddress("sess-123"));
+  const messages = drain(root, standingAddress(canonicalPath(dir)));
+  assert.equal(messages[0]!.replyTo, sessionAddress("sess-123"));
 });
 
 test("reply-to none omits the reply address", () => {
   const root = newRoot();
   const dir = mkdtempSync(join(tmpdir(), "post-cli-target-"));
   run(root, ["send", "--to", dir, "--body", "fyi", "--reply-to", "none"], { PI_SESSION_ID: "sess-123" });
-  const letters = drain(root, standingAddress(canonicalPath(dir)));
-  assert.equal(letters[0]!.replyTo, undefined);
+  const messages = drain(root, standingAddress(canonicalPath(dir)));
+  assert.equal(messages[0]!.replyTo, undefined);
 });
 
 test("stdin is the body when --body is absent", () => {
@@ -60,8 +60,8 @@ test("stdin is the body when --body is absent", () => {
     encoding: "utf8",
   });
   assert.equal(result.status, 0, result.stderr);
-  const letters = drain(root, standingAddress(canonicalPath(dir)));
-  assert.equal(letters[0]!.body, "piped brief\n");
+  const messages = drain(root, standingAddress(canonicalPath(dir)));
+  assert.equal(messages[0]!.body, "piped brief\n");
 });
 
 test("an oversize body is refused with a nonzero exit", () => {
