@@ -3,7 +3,7 @@ import type { Letter } from "./letter.ts";
 export type InboundMode = "accept" | "ask" | "refuse";
 
 export function inboundMode(env: NodeJS.ProcessEnv = process.env): InboundMode {
-  const value = env.PI_CAST_INBOUND;
+  const value = env.PI_POST_INBOUND;
   if (value === "ask" || value === "refuse") return value;
   return "accept";
 }

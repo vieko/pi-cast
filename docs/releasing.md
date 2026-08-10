@@ -1,4 +1,4 @@
-# Releasing `pi-cast`
+# Releasing `pi-post`
 
 Releases are **tag-driven and automated**: pushing a `vX.Y.Z` tag triggers
 [`.github/workflows/release.yml`](../.github/workflows/release.yml), which runs
@@ -18,8 +18,8 @@ npm publish           # npm login / OTP applies here, once
 
 Then configure the trusted publisher once, on the package:
 
-- npmjs.com → **pi-cast** → Settings → **Trusted Publisher** → GitHub Actions
-- Organization or user: `vieko` · Repository: `pi-cast` · Workflow filename:
+- npmjs.com → **pi-post** → Settings → **Trusted Publisher** → GitHub Actions
+- Organization or user: `vieko` · Repository: `pi-post` · Workflow filename:
   `release.yml` · Environment: *(leave blank)*
 
 This is what lets the workflow publish without a stored token or a 2FA prompt.
@@ -60,7 +60,7 @@ the tag, with the gate green (`npm ci && npm run check`).
 
 ## Wire format discipline
 
-`src/letter.ts` + `src/address.ts` and `bin/pi-cast.mjs` implement the same
+`src/letter.ts` + `src/address.ts` and `bin/pi-post.mjs` implement the same
 wire contract independently (the CLI must run under bare node). Any release
 that touches the letter schema or address derivation must change **both**,
 keep `test/cli.test.ts` green, and bump the letter `v` if the change is not

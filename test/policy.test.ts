@@ -7,9 +7,9 @@ const from = { kind: "session" as const, name: "peer", address: "s-aaaaaaaaaaaa"
 
 test("inbound mode defaults to accept and ignores junk", () => {
   assert.equal(inboundMode({}), "accept");
-  assert.equal(inboundMode({ PI_CAST_INBOUND: "ask" }), "ask");
-  assert.equal(inboundMode({ PI_CAST_INBOUND: "refuse" }), "refuse");
-  assert.equal(inboundMode({ PI_CAST_INBOUND: "banana" }), "accept");
+  assert.equal(inboundMode({ PI_POST_INBOUND: "ask" }), "ask");
+  assert.equal(inboundMode({ PI_POST_INBOUND: "refuse" }), "refuse");
+  assert.equal(inboundMode({ PI_POST_INBOUND: "banana" }), "accept");
 });
 
 test("identical body from one sender inside the window is dropped", () => {

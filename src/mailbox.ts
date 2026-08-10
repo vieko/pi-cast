@@ -23,8 +23,8 @@ export class BacklogFullError extends Error {
   }
 }
 
-export function castRoot(env: NodeJS.ProcessEnv = process.env): string {
-  return env.PI_CAST_DIR || join(homedir(), ".pi", "agent", "cast");
+export function postRoot(env: NodeJS.ProcessEnv = process.env): string {
+  return env.PI_POST_DIR || join(homedir(), ".pi", "agent", "post");
 }
 
 export function inboxDir(root: string, address: string): string {

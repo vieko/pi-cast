@@ -31,7 +31,7 @@ test("addresses match the wire format", () => {
 });
 
 test("symlink aliases of one directory share one standing address", () => {
-  const base = mkdtempSync(join(tmpdir(), "cast-addr-"));
+  const base = mkdtempSync(join(tmpdir(), "post-addr-"));
   const real = join(base, "real");
   const alias = join(base, "alias");
   mkdirSync(real);

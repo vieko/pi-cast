@@ -8,19 +8,19 @@ import { fileURLToPath } from "node:url";
 import { sessionAddress, standingAddress, canonicalPath } from "../src/address.ts";
 import { drain } from "../src/mailbox.ts";
 
-const CLI = fileURLToPath(new URL("../bin/pi-cast.mjs", import.meta.url));
-const newRoot = () => mkdtempSync(join(tmpdir(), "cast-cli-"));
+const CLI = fileURLToPath(new URL("../bin/pi-post.mjs", import.meta.url));
+const newRoot = () => mkdtempSync(join(tmpdir(), "post-cli-"));
 
 function run(root: string, args: string[], env: Record<string, string> = {}) {
   return spawnSync(process.execPath, [CLI, ...args], {
-    env: { ...process.env, PI_CAST_DIR: root, PI_CAST_REPLY_TO: "", PI_SESSION_ID: "", ...env },
+    env: { ...process.env, PI_POST_DIR: root, PI_POST_REPLY_TO: "", PI_SESSION_ID: "", ...env },
     encoding: "utf8",
   });
 }
 
 test("a CLI letter is a real letter: the TS parser accepts it verbatim", () => {
   const root = newRoot();
-  const dir = mkdtempSync(join(tmpdir(), "cast-cli-target-"));
+  const dir = mkdtempSync(join(tmpdir(), "post-cli-target-"));
   const result = run(root, ["send", "--to", dir, "--body", "gate green, log at /tmp/x", "--from", "golem:test"]);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /^queued /);
@@ -35,7 +35,7 @@ test("a CLI letter is a real letter: the TS parser accepts it verbatim", () => {
 
 test("reply-to derives from PI_SESSION_ID, exactly as the extension derives it", () => {
   const root = newRoot();
-  const dir = mkdtempSync(join(tmpdir(), "cast-cli-target-"));
+  const dir = mkdtempSync(join(tmpdir(), "post-cli-target-"));
   const result = run(root, ["send", "--to", dir, "--body", "done"], { PI_SESSION_ID: "sess-123" });
   assert.equal(result.status, 0, result.stderr);
 
@@ -45,7 +45,7 @@ test("reply-to derives from PI_SESSION_ID, exactly as the extension derives it",
 
 test("reply-to none omits the reply address", () => {
   const root = newRoot();
-  const dir = mkdtempSync(join(tmpdir(), "cast-cli-target-"));
+  const dir = mkdtempSync(join(tmpdir(), "post-cli-target-"));
   run(root, ["send", "--to", dir, "--body", "fyi", "--reply-to", "none"], { PI_SESSION_ID: "sess-123" });
   const letters = drain(root, standingAddress(canonicalPath(dir)));
   assert.equal(letters[0]!.replyTo, undefined);
@@ -53,9 +53,9 @@ test("reply-to none omits the reply address", () => {
 
 test("stdin is the body when --body is absent", () => {
   const root = newRoot();
-  const dir = mkdtempSync(join(tmpdir(), "cast-cli-target-"));
+  const dir = mkdtempSync(join(tmpdir(), "post-cli-target-"));
   const result = spawnSync(process.execPath, [CLI, "send", "--to", dir], {
-    env: { ...process.env, PI_CAST_DIR: root, PI_CAST_REPLY_TO: "", PI_SESSION_ID: "" },
+    env: { ...process.env, PI_POST_DIR: root, PI_POST_REPLY_TO: "", PI_SESSION_ID: "" },
     input: "piped brief\n",
     encoding: "utf8",
   });

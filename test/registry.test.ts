@@ -15,7 +15,7 @@ import {
   type SessionRecord,
 } from "../src/registry.ts";
 
-const newRoot = () => mkdtempSync(join(tmpdir(), "cast-reg-"));
+const newRoot = () => mkdtempSync(join(tmpdir(), "post-reg-"));
 
 function record(overrides: Partial<SessionRecord> = {}): SessionRecord {
   return {

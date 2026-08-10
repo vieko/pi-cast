@@ -1,5 +1,5 @@
 {
-  "name": "pi-cast",
+  "name": "pi-post",
   "version": "0.1.0",
   "description": "Mail for pi sessions — send briefs, findings, and handoffs between live sessions, future sessions, and processes, delivered straight into the receiving agent's context.",
   "keywords": [
@@ -15,11 +15,11 @@
   "author": "Vieko Franetovic",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/vieko/pi-cast.git"
+    "url": "git+https://github.com/vieko/pi-post.git"
   },
   "type": "module",
   "bin": {
-    "pi-cast": "./bin/pi-cast.mjs"
+    "pi-post": "./bin/pi-post.mjs"
   },
   "files": [
     "extensions",
@@ -39,7 +39,7 @@
   },
   "pi": {
     "extensions": [
-      "./extensions/pi-cast.ts"
+      "./extensions/pi-post.ts"
     ]
   },
   "peerDependencies": {

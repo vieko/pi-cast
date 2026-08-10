@@ -1,9 +1,9 @@
 name: release
 
-# Tag-driven release: pushing a vX.Y.Z tag gates, publishes pi-cast to npm
+# Tag-driven release: pushing a vX.Y.Z tag gates, publishes pi-post to npm
 # via OIDC trusted publishing (no token, no OTP, with provenance), and cuts
 # the GitHub release. One-time setup: configure the trusted publisher for
-# pi-cast on npmjs.com (GitHub Actions, repo vieko/pi-cast, workflow
+# pi-post on npmjs.com (GitHub Actions, repo vieko/pi-post, workflow
 # release.yml).
 
 on:
@@ -38,7 +38,7 @@ jobs:
           pkg="$(node -p "require('./package.json').version")"
           tag="${GITHUB_REF_NAME#v}"
           if [ "$pkg" != "$tag" ]; then
-            echo "tag v$tag does not match pi-cast version $pkg" >&2
+            echo "tag v$tag does not match pi-post version $pkg" >&2
             exit 1
           fi
       # OIDC trusted publishing: no NODE_AUTH_TOKEN, no OTP; provenance is automatic.

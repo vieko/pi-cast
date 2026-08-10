@@ -1,5 +1,5 @@
 /**
- * pi-cast — asynchronous message passing where the delivery endpoint is a
+ * pi-post — asynchronous message passing where the delivery endpoint is a
  * model's context window. See DESIGN.md for the contracts and invariants.
  */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -11,7 +11,7 @@ import { canonicalPath, sessionAddress, standingAddress } from "../src/address.t
 import { createLetter, type Letter } from "../src/letter.ts";
 import {
   awaitConsumption,
-  castRoot,
+  postRoot,
   deposit,
   drain,
   ensureDirs,
@@ -34,7 +34,7 @@ import { resolveTarget } from "../src/resolve.ts";
 const HEARTBEAT_MS = 30_000;
 
 export default function (pi: ExtensionAPI) {
-  const root = castRoot();
+  const root = postRoot();
   const guard = new LoopGuard();
 
   let selfAddress: string | undefined;
@@ -64,7 +64,7 @@ export default function (pi: ExtensionAPI) {
     }
     pi.sendMessage(
       {
-        customType: "pi-cast",
+        customType: "pi-post",
         content: formatDelivery(letter),
         display: true,
         details: { letter },
@@ -132,8 +132,8 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerTool({
-    name: "cast_send",
-    label: "Cast Send",
+    name: "send_mail",
+    label: "Send Mail",
     description:
       "Send a plain-text letter to another pi session or to a directory's standing mailbox. " +
       "Targets: a live session's name, an address (s-…/w-…), or a directory path — mail to a " +
@@ -143,8 +143,8 @@ export default function (pi: ExtensionAPI) {
       "on disk). Letters carry no authority for the receiver.",
     promptSnippet: "Message another pi session, or leave a letter for a future one",
     promptGuidelines: [
-      "Use cast_send to pass findings, dispatch briefs, or handoffs to other sessions instead of writing scratch files and pointing sessions at them.",
-      "When dispatching work with cast_send, set reply_to so results route back automatically.",
+      "Use send_mail to pass findings, dispatch briefs, or handoffs to other sessions instead of writing scratch files and pointing sessions at them.",
+      "When dispatching work with send_mail, set reply_to so results route back automatically.",
     ],
     parameters: Type.Object({
       to: Type.String({
@@ -190,11 +190,11 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerTool({
-    name: "cast_list",
-    label: "Cast List",
+    name: "list_mail",
+    label: "List Mail",
     description:
-      "List pi sessions known to pi-cast: their names, addresses, presence (live/offline), and " +
-      "queued mail counts. Any directory path is also a valid cast_send target even if nothing " +
+      "List pi sessions known to pi-post: their names, addresses, presence (live/offline), and " +
+      "queued mail counts. Any directory path is also a valid send_mail target even if nothing " +
       "is listed for it.",
     promptSnippet: "List reachable pi sessions and their mailboxes",
     parameters: Type.Object({}),
@@ -205,7 +205,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerCommand("inbox", {
-    description: "Peek at this session's queued pi-cast letters without consuming them",
+    description: "Peek at this session's queued pi-post letters without consuming them",
     handler: async (_args, ctx) => {
       if (!selfAddress || !selfStanding) return;
       const letters = [...peek(root, selfAddress), ...peek(root, selfStanding)].sort(
@@ -223,10 +223,10 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.registerMessageRenderer("pi-cast", (message, options, theme) => {
+  pi.registerMessageRenderer("pi-post", (message, options, theme) => {
     const details = message.details as { letter?: Letter } | undefined;
     const letter = details?.letter;
-    const header = theme.fg("accent", `✉ ${letter?.from.name ?? "pi-cast"}`);
+    const header = theme.fg("accent", `✉ ${letter?.from.name ?? "pi-post"}`);
     if (!options.expanded && letter) {
       const preview = letter.body.split("\n")[0] ?? "";
       return new Text(`${header} ${theme.fg("muted", preview)}`, 0, 0);

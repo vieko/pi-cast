@@ -1,6 +1,6 @@
 # Design
 
-pi-cast is asynchronous message passing where the delivery endpoint is a
+pi-post is asynchronous message passing where the delivery endpoint is a
 model's context window. A maildir for pi sessions: addresses name
 conversations — including ones that do not exist yet — mail queues on disk,
 and "delivered" means the text entered the receiving agent's context at a
@@ -16,7 +16,7 @@ A shared directory. No daemon, no socket, no connection. Sending is
 session start.
 
 ```
-~/.pi/agent/cast/             0700   (override: PI_CAST_DIR)
+~/.pi/agent/post/             0700   (override: PI_POST_DIR)
   registry/
     s-1ce0cbe5fe96.json       presence record: who, where, live or not
   inbox/
@@ -110,13 +110,13 @@ Each is pinned by a test.
 
 ## Inbound control
 
-`PI_CAST_INBOUND`: `accept` (default) delivers, `ask` prompts per letter
+`PI_POST_INBOUND`: `accept` (default) delivers, `ask` prompts per letter
 where a UI exists (falls back to accept headless), `refuse` drops.
 
 ## Non-goals
 
 - Payloads, files, conversation history. Text only, by design.
-- Spawning or steering processes. pi-cast is transport; orchestration
+- Spawning or steering processes. pi-post is transport; orchestration
   belongs to the user, tmux, and anvil.
 - Cross-machine anything. Two parties can reach each other exactly when
   they share a filesystem.
@@ -128,5 +128,5 @@ where a UI exists (falls back to accept headless), `refuse` drops.
 The mailbox mechanics converge with [pi-peer](https://github.com/shift-labs-ai/pi-peer)
 (MIT), whose ARCHITECTURE.md and test-suite-as-specification informed this
 design, and with Claude Code's cross-session messaging boundary model.
-pi-cast differs in its addressing (standing addresses for sessions that do
+pi-post differs in its addressing (standing addresses for sessions that do
 not exist yet), first-class reply-to routing, and process senders.

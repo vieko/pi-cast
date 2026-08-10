@@ -7,7 +7,7 @@ import { canonicalPath, standingAddress } from "../src/address.ts";
 import { writeRecord, type SessionRecord } from "../src/registry.ts";
 import { AmbiguousTargetError, resolveTarget, UnknownTargetError } from "../src/resolve.ts";
 
-const newRoot = () => mkdtempSync(join(tmpdir(), "cast-res-"));
+const newRoot = () => mkdtempSync(join(tmpdir(), "post-res-"));
 
 function record(overrides: Partial<SessionRecord>): SessionRecord {
   return {
@@ -30,14 +30,14 @@ test("an explicit address resolves as-is", () => {
 
 test("a path resolves to the directory's standing address, canonicalized", () => {
   const root = newRoot();
-  const dir = mkdtempSync(join(tmpdir(), "cast-target-"));
+  const dir = mkdtempSync(join(tmpdir(), "post-target-"));
   const resolved = resolveTarget(root, dir);
   assert.equal(resolved.address, standingAddress(canonicalPath(dir)));
 });
 
 test("a path that does not exist yet is still addressable (the successor case)", () => {
   const root = newRoot();
-  const future = join(tmpdir(), "cast-not-yet", "worktree");
+  const future = join(tmpdir(), "post-not-yet", "worktree");
   const resolved = resolveTarget(root, future);
   assert.equal(resolved.address, standingAddress(canonicalPath(future)));
 });

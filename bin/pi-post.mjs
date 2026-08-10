@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 /**
- * pi-cast CLI — the deposit half of pi-cast for processes that are not pi
+ * pi-post CLI — the deposit half of pi-post for processes that are not pi
  * sessions: anvil runs at exit, Claude Code hooks, CI, shell scripts.
  *
  * Standalone on purpose: it duplicates the letter/address contract from
  * src/ (which is TypeScript) so it runs under bare node. test/cli.test.ts
  * pins that both sides stay in agreement.
  *
- *   pi-cast send --to <target> [--body <text>] [--from <label>] [--reply-to <addr>|none]
- *   pi-cast list
- *   pi-cast peek <target>
- *   pi-cast whoami
+ *   pi-post send --to <target> [--body <text>] [--from <label>] [--reply-to <addr>|none]
+ *   pi-post list
+ *   pi-post peek <target>
+ *   pi-post whoami
  *
- * With no --body, the body is read from stdin. Env: PI_CAST_DIR,
- * PI_CAST_FROM, PI_CAST_REPLY_TO; PI_SESSION_ID (set inside pi bash tools)
+ * With no --body, the body is read from stdin. Env: PI_POST_DIR,
+ * PI_POST_FROM, PI_POST_REPLY_TO; PI_SESSION_ID (set inside pi bash tools)
  * derives the default reply address.
  */
 import { createHash, randomBytes } from "node:crypto";
@@ -33,7 +33,7 @@ const MAX_BODY_BYTES = 32 * 1024;
 const BACKLOG_CAP = 50;
 const ADDRESS_RE = /^[sw]-[0-9a-f]{12}$/;
 
-const root = process.env.PI_CAST_DIR || join(homedir(), ".pi", "agent", "cast");
+const root = process.env.PI_POST_DIR || join(homedir(), ".pi", "agent", "post");
 
 const h12 = (input) => createHash("sha256").update(input).digest("hex").slice(0, 12);
 const sessionAddress = (sessionId) => `s-${h12(`session\0${sessionId}`)}`;
@@ -114,7 +114,7 @@ function resolveTarget(target) {
 }
 
 function fail(message) {
-  console.error(`pi-cast: ${message}`);
+  console.error(`pi-post: ${message}`);
   process.exit(1);
 }
 
@@ -140,7 +140,7 @@ async function readStdin() {
 }
 
 function defaultReplyTo() {
-  if (process.env.PI_CAST_REPLY_TO) return process.env.PI_CAST_REPLY_TO;
+  if (process.env.PI_POST_REPLY_TO) return process.env.PI_POST_REPLY_TO;
   if (process.env.PI_SESSION_ID) return sessionAddress(process.env.PI_SESSION_ID);
   return undefined;
 }
@@ -159,7 +159,7 @@ async function send(args) {
   const replyTo = replyToArg === "none" ? undefined : replyToArg;
   const from = {
     kind: "process",
-    name: args.from ?? process.env.PI_CAST_FROM ?? `process:${basename(process.cwd())}`,
+    name: args.from ?? process.env.PI_POST_FROM ?? `process:${basename(process.cwd())}`,
     cwd: process.cwd(),
   };
 
@@ -266,7 +266,7 @@ switch (command) {
     whoami();
     break;
   default:
-    console.log("usage: pi-cast send --to <target> [--body <text>] [--from <label>] [--reply-to <addr>|none]");
-    console.log("       pi-cast list | peek <target> | whoami");
+    console.log("usage: pi-post send --to <target> [--body <text>] [--from <label>] [--reply-to <addr>|none]");
+    console.log("       pi-post list | peek <target> | whoami");
     process.exit(command ? 1 : 0);
 }
