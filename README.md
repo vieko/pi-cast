@@ -1,6 +1,6 @@
 # pi-post
 
-Mail for [pi](https://github.com/badlogic/pi-mono) sessions. Send briefs,
+Mail for [Pi](https://pi.dev) sessions. Send briefs,
 findings, and handoffs between live sessions, **future sessions**, and
 processes — delivered straight into the receiving agent's context.
 
@@ -65,6 +65,14 @@ pi install npm:pi-post
 Nothing to enable; every session registers itself on startup.
 
 ## Use
+
+| Surface | Effect |
+|---|---|
+| `send_mail` (tool) | Send text to a session, path, or address; reports **delivered** or **queued** |
+| `list_mail` (tool) | Known sessions, presence, queued mail counts |
+| `/inbox` | Peek at this session's queued letters without consuming them |
+| `pi-post send` (CLI) | Send from any process: `--to`, `--body`/stdin, `--from`, `--reply-to` |
+| `pi-post list` / `peek` / `whoami` (CLI) | Inspect the registry, a mailbox, or your own address |
 
 Ask in words; the model picks the tool.
 
@@ -140,11 +148,20 @@ See [DESIGN.md](DESIGN.md) for the address and letter contracts, delivery
 semantics, and invariants. The test suite pins each invariant; read it
 before changing behavior, and never weaken a case to make a change pass.
 
-Prior art: the mailbox mechanics converge with
-[pi-peer](https://github.com/shift-labs-ai/pi-peer) (MIT), and the
-boundary model follows Claude Code's cross-session messaging. pi-post
-differs in standing addresses (mail to sessions that don't exist yet),
-pinned reply-to routing, and process senders.
+## Related
+
+- [Claude Code's cross-session messaging](https://code.claude.com/docs/en/cross-session-messaging)
+  -- the origin of the boundary model pi-post follows. Presence-based:
+  live sessions only, no queue for absent or future ones.
+- [@shift-labs/pi-peer](https://github.com/shift-labs-ai/pi-peer) -- peer
+  messaging between pi conversations, whose mailbox mechanics (MIT) this
+  design converges with. pi-post differs in standing addresses (mail to
+  sessions that don't exist yet), pinned reply-to routing, and process
+  senders via the CLI.
+- [pi-intercom](https://www.npmjs.com/package/pi-intercom) -- broker-based
+  1:1 session messaging with a TUI overlay and pi-subagents integration.
+- [pi-messenger](https://www.npmjs.com/package/pi-messenger) -- a shared
+  chat room with file reservations, built for swarms rather than mail.
 
 ## Development
 
@@ -167,3 +184,7 @@ bin/
   pi-post.mjs  standalone CLI (plain JS; the wire contract, duplicated
                deliberately and pinned by test/cli.test.ts)
 ```
+
+## License
+
+MIT
