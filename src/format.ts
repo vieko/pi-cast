@@ -32,9 +32,6 @@ export function formatListing(root: string, records: SessionRecord[], selfAddres
     lines.push(`${record.name} — ${record.address} (${presence(record)}${mail})${self} ${record.cwd}`);
   }
   if (lines.length === 0) lines.push("No registered sessions.");
-  lines.push(
-    "",
-    "Any directory is also addressable: send to a path and whichever session next opens it receives the message.",
-  );
+  lines.push("", "A directory path as a target resolves to the session registered in it.");
   return lines.join("\n");
 }

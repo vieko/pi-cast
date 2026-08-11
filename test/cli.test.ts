@@ -5,11 +5,27 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { sessionAddress, standingAddress, canonicalPath } from "../src/address.ts";
+import { canonicalPath, sessionAddress } from "../src/address.ts";
 import { drain } from "../src/mailbox.ts";
+import { writeRecord, type SessionRecord } from "../src/registry.ts";
 
 const CLI = fileURLToPath(new URL("../bin/pi-post.mjs", import.meta.url));
 const newRoot = () => mkdtempSync(join(tmpdir(), "post-cli-"));
+
+/** Register an offline session in `dir` so path targets resolve, and return its address. */
+function registerSession(root: string, dir: string, address = "s-abcdefabcdef"): string {
+  const record: SessionRecord = {
+    v: 1,
+    address,
+    sessionId: "sid",
+    name: "target",
+    cwd: canonicalPath(dir),
+    startedAt: 0,
+    lastSeen: Date.now(),
+  };
+  writeRecord(root, record);
+  return address;
+}
 
 function run(root: string, args: string[], env: Record<string, string> = {}) {
   return spawnSync(process.execPath, [CLI, ...args], {
@@ -21,11 +37,12 @@ function run(root: string, args: string[], env: Record<string, string> = {}) {
 test("a CLI message is a real message: the TS parser accepts it verbatim", () => {
   const root = newRoot();
   const dir = mkdtempSync(join(tmpdir(), "post-cli-target-"));
+  const address = registerSession(root, dir);
   const result = run(root, ["send", "--to", dir, "--body", "gate green, log at /tmp/x", "--from", "golem:test"]);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /^queued /);
 
-  const messages = drain(root, standingAddress(canonicalPath(dir)));
+  const messages = drain(root, address);
   assert.equal(messages.length, 1);
   assert.equal(messages[0]!.body, "gate green, log at /tmp/x");
   assert.equal(messages[0]!.from.kind, "process");
@@ -33,40 +50,47 @@ test("a CLI message is a real message: the TS parser accepts it verbatim", () =>
   assert.equal(messages[0]!.replyTo, undefined);
 });
 
+test("a directory target requires a registered session there", () => {
+  const root = newRoot();
+  const dir = mkdtempSync(join(tmpdir(), "post-cli-target-"));
+  const result = run(root, ["send", "--to", dir, "--body", "hello"]);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /no session is registered/);
+});
+
 test("reply-to derives from PI_SESSION_ID, exactly as the extension derives it", () => {
   const root = newRoot();
   const dir = mkdtempSync(join(tmpdir(), "post-cli-target-"));
+  const address = registerSession(root, dir);
   const result = run(root, ["send", "--to", dir, "--body", "done"], { PI_SESSION_ID: "sess-123" });
   assert.equal(result.status, 0, result.stderr);
-
-  const messages = drain(root, standingAddress(canonicalPath(dir)));
-  assert.equal(messages[0]!.replyTo, sessionAddress("sess-123"));
+  assert.equal(drain(root, address)[0]!.replyTo, sessionAddress("sess-123"));
 });
 
 test("reply-to none omits the reply address", () => {
   const root = newRoot();
   const dir = mkdtempSync(join(tmpdir(), "post-cli-target-"));
+  const address = registerSession(root, dir);
   run(root, ["send", "--to", dir, "--body", "fyi", "--reply-to", "none"], { PI_SESSION_ID: "sess-123" });
-  const messages = drain(root, standingAddress(canonicalPath(dir)));
-  assert.equal(messages[0]!.replyTo, undefined);
+  assert.equal(drain(root, address)[0]!.replyTo, undefined);
 });
 
 test("stdin is the body when --body is absent", () => {
   const root = newRoot();
   const dir = mkdtempSync(join(tmpdir(), "post-cli-target-"));
+  const address = registerSession(root, dir);
   const result = spawnSync(process.execPath, [CLI, "send", "--to", dir], {
     env: { ...process.env, PI_POST_DIR: root, PI_POST_REPLY_TO: "", PI_SESSION_ID: "" },
     input: "piped brief\n",
     encoding: "utf8",
   });
   assert.equal(result.status, 0, result.stderr);
-  const messages = drain(root, standingAddress(canonicalPath(dir)));
-  assert.equal(messages[0]!.body, "piped brief\n");
+  assert.equal(drain(root, address)[0]!.body, "piped brief\n");
 });
 
 test("an oversize body is refused with a nonzero exit", () => {
   const root = newRoot();
-  const result = run(root, ["send", "--to", "/tmp", "--body", "x".repeat(33 * 1024)]);
+  const result = run(root, ["send", "--to", "s-abcdefabcdef", "--body", "x".repeat(33 * 1024)]);
   assert.equal(result.status, 1);
   assert.match(result.stderr, /cap/);
 });

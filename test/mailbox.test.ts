@@ -17,7 +17,7 @@ import {
 
 const from = { kind: "process" as const, name: "test" };
 const newRoot = () => mkdtempSync(join(tmpdir(), "post-mail-"));
-const ADDR = "w-aaaaaaaaaaaa";
+const ADDR = "s-cccccccccccc";
 
 test("deposit then drain: oldest first, exactly once", () => {
   const root = newRoot();
@@ -42,14 +42,14 @@ test("a reader never sees half a message: .tmp files are invisible", () => {
 
 test("malformed messages are removed, not redelivered forever", () => {
   const root = newRoot();
-  mkdirSync(inboxDir(root, "w-bbbbbbbbbbbb"), { recursive: true });
-  writeFileSync(join(inboxDir(root, "w-bbbbbbbbbbbb"), "0000000000001-00000000.json"), "not json");
-  assert.deepEqual(drain(root, "w-bbbbbbbbbbbb"), []);
-  assert.equal(readdirSync(inboxDir(root, "w-bbbbbbbbbbbb")).length, 0);
+  mkdirSync(inboxDir(root, "s-dddddddddddd"), { recursive: true });
+  writeFileSync(join(inboxDir(root, "s-dddddddddddd"), "0000000000001-00000000.json"), "not json");
+  assert.deepEqual(drain(root, "s-dddddddddddd"), []);
+  assert.equal(readdirSync(inboxDir(root, "s-dddddddddddd")).length, 0);
 });
 
 test("draining a mailbox that never existed is empty, not an error", () => {
-  assert.deepEqual(drain(newRoot(), "w-cccccccccccc"), []);
+  assert.deepEqual(drain(newRoot(), "s-eeeeeeeeeeee"), []);
 });
 
 test("the backlog cap refuses message 51", () => {

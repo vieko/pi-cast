@@ -3,34 +3,21 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  addressKind,
-  canonicalPath,
-  isAddress,
-  looksLikePath,
-  sessionAddress,
-  standingAddress,
-} from "../src/address.ts";
+import { canonicalPath, isAddress, looksLikePath, sessionAddress } from "../src/address.ts";
 
-test("an address belongs to an identity, not a process: same input, same address", () => {
+test("an address belongs to a conversation, not a process: same session id, same address", () => {
   assert.equal(sessionAddress("abc"), sessionAddress("abc"));
-  assert.equal(standingAddress("/x/y"), standingAddress("/x/y"));
+  assert.notEqual(sessionAddress("abc"), sessionAddress("abd"));
 });
 
-test("session and standing addresses never collide, even for equal input", () => {
-  assert.notEqual(sessionAddress("x"), standingAddress("x"));
-  assert.equal(addressKind(sessionAddress("x")), "session");
-  assert.equal(addressKind(standingAddress("x")), "standing");
-});
-
-test("addresses match the wire format", () => {
+test("addresses match the wire format; only sessions have addresses", () => {
   assert.ok(isAddress(sessionAddress("id")));
-  assert.ok(isAddress(standingAddress("/p")));
+  assert.ok(!isAddress("w-abcdefabcdef")); // standing addresses were removed in v0.3.0
   assert.ok(!isAddress("s-XYZ"));
   assert.ok(!isAddress("gtm"));
 });
 
-test("symlink aliases of one directory share one standing address", () => {
+test("symlink aliases of one directory share one canonical path", () => {
   const base = mkdtempSync(join(tmpdir(), "post-addr-"));
   const real = join(base, "real");
   const alias = join(base, "alias");

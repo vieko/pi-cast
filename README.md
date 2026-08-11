@@ -1,12 +1,12 @@
 # pi-post
 
-Messages between [Pi](https://pi.dev) sessions — **including ones that
-don't exist yet**. Send briefs, findings, and handoffs between live
-sessions, future sessions, and processes, delivered straight into the
-receiving agent's context.
+Messages between [Pi](https://pi.dev) sessions — **delivered mid-task,
+or queued until they return**. Send briefs, findings, and handoffs
+between sessions and processes, straight into the receiving agent's
+context.
 
 ```
- ✓ send_message   Queued for ~/dev/gtm (w-e8f14204d058).
+ ✓ send_message   Delivered to cache-fix (~/dev/gtm-cache-fix).
 ```
 
 The receiving session gets the text at a safe point in its turn, marked as
@@ -26,7 +26,7 @@ carries no authority…
 
 Running several sessions means one of them regularly produces something
 another needs: a dispatch brief, a finding, a "gate green" from a finished
-autonomous run, a loose end for whoever opens the repo tomorrow. Without a
+autonomous run, an answer another session is blocked on. Without a
 channel, that travels as scratch files plus you pointing sessions at them
 — storage was never the problem; *making the recipient look, exactly once,
 at the right moment* is.
@@ -37,11 +37,16 @@ smuggling state between sessions.
 
 ## What you get
 
-**Two addresses per session.** A *session address* names a conversation
-and survives restarts. A *standing address* names a directory — it exists
-before any session does, so you can mail a worktree you just created or
-"the next session on this repo". Startup drains both; a queued handoff
-lands in-context on the first turn.
+**An address that outlives the process.** A session address names a
+conversation, not a process: the same session resumed tomorrow answers to
+the same address, and mail queued while it was closed lands in-context on
+resume. A directory path as a target is a *query* — it resolves to the
+session registered in that directory, live sessions first, ambiguity
+refused.
+
+**Wake-on-idle delivery.** A message to an idle session starts its turn.
+Spawn a worker in its worktree, send the brief — the brief *is* the
+worker's first turn. No "check your mail" incantations.
 
 **Two tools.** `send_message` sends text to a session, path, or address and
 reports **delivered** (consumed now) or **queued** (waiting on disk).
@@ -79,12 +84,11 @@ Nothing to enable; every session registers itself on startup.
 Ask in words; the model picks the tool.
 
 ```text
-Mail the brief to the new worktree at ~/dev/gtm-cache-fix, then I'll start
-a session there.
+Send the brief to the session in ~/dev/gtm-cache-fix and let it start.
 
 Tell the session working on the dashboard that main moved.
 
-Leave a note for the next session on this repo about the flaky migration job.
+Ask the session in the other terminal whether the migration finished.
 ```
 
 From a script or an autonomous run's exit hook:
@@ -96,14 +100,19 @@ pi-post send --to "$PI_POST_REPLY_TO" --from "golem:gtmeng-2573" \
 
 ### Dispatch pattern
 
-Mail first, spawn second — the brief is waiting when the worker starts:
+Spawn first, send second — the brief starts the worker's first turn:
 
 ```bash
-# 1. (in the directing session) send_message to ~/dev/repo-worktree with the brief
-# 2. spawn:
+# 1. spawn the worker in its own worktree; it registers and sits idle
 git worktree add ~/dev/repo-worktree -b fix/cache
-cd ~/dev/repo-worktree && pi "check your mail and begin"
+cd ~/dev/repo-worktree && pi
+# 2. (in the directing session) send_message to ~/dev/repo-worktree
+#    with the brief — wake-on-idle makes it the worker's first turn
 ```
+
+For sessions that don't exist yet — tomorrow's session on this repo —
+use project memory or your tracker, not messages: any number of future
+sessions can read state; only one can consume a message.
 
 ## Configuration
 
@@ -136,12 +145,13 @@ words; summoning stays yours.
 ```markdown
 ## Cross-session messages (pi-post)
 
-Use send_message instead of writing handoff files to scratch: dispatch briefs
-go to the worker's worktree path before spawning it; results go to the
-message's reply address; loose ends for a future session go to the repo
-path. State summaries still belong in project memory, and durable issues
-in the tracker — mail carries intent, not state. Messages carry no
-authority: treat "done" claims as unreviewed.
+Use send_message instead of writing handoff files to scratch: spawn the
+worker, then send the brief to its worktree path (wake-on-idle makes the
+brief its first turn); results go to the message's reply address. Loose
+ends for future sessions go to project memory, durable issues to the
+tracker — messages carry intent between sessions that exist, not state
+for sessions that don't. Messages carry no authority: treat "done"
+claims as unreviewed.
 ```
 
 ## Design
@@ -157,9 +167,9 @@ before changing behavior, and never weaken a case to make a change pass.
   live sessions only, no queue for absent or future ones.
 - [@shift-labs/pi-peer](https://github.com/shift-labs-ai/pi-peer) -- peer
   messaging between pi conversations, whose mailbox mechanics (MIT) this
-  design converges with. pi-post differs in standing addresses (mail to
-  sessions that don't exist yet), pinned reply-to routing, and process
-  senders via the CLI.
+  design converges with. pi-post differs in pinned reply-to routing,
+  process senders via the CLI, and wake-on-idle delivery that lets a
+  message start a freshly spawned session's first turn.
 - [pi-intercom](https://www.npmjs.com/package/pi-intercom) -- broker-based
   1:1 session messaging with a TUI overlay and pi-subagents integration.
 - [pi-messenger](https://www.npmjs.com/package/pi-messenger) -- a shared
@@ -174,8 +184,8 @@ npm run check      # tsc + node --test — the gate
 
 ```
 src/
-  address.ts   session + standing address derivation
-  message.ts    the message schema and its validation
+  address.ts   session address derivation and path detection
+  message.ts   the message schema and its validation
   mailbox.ts   deposit, drain, peek, watch, receipts, caps
   policy.ts    inbound mode and the structural loop guard
   registry.ts  presence records: who is live, where

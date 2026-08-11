@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { canonicalPath, standingAddress } from "../src/address.ts";
+import { canonicalPath } from "../src/address.ts";
 import { writeRecord, type SessionRecord } from "../src/registry.ts";
 import { AmbiguousTargetError, resolveTarget, UnknownTargetError } from "../src/resolve.ts";
 
@@ -16,7 +16,6 @@ function record(overrides: Partial<SessionRecord>): SessionRecord {
     sessionId: "sid",
     name: "gtm",
     cwd: "/dev/gtm",
-    standing: "w-aaaaaaaaaaaa",
     startedAt: 0,
     lastSeen: Date.now(),
     ...overrides,
@@ -28,35 +27,45 @@ test("an explicit address resolves as-is", () => {
   assert.equal(resolveTarget(root, "s-abcdefabcdef").address, "s-abcdefabcdef");
 });
 
-test("a path resolves to the directory's standing address, canonicalized", () => {
+test("a directory is a query for the session registered in it, not an address", () => {
   const root = newRoot();
-  const dir = mkdtempSync(join(tmpdir(), "post-target-"));
-  const resolved = resolveTarget(root, dir);
-  assert.equal(resolved.address, standingAddress(canonicalPath(dir)));
+  const dir = canonicalPath(mkdtempSync(join(tmpdir(), "post-target-")));
+  writeRecord(root, record({ cwd: dir, pid: process.pid }));
+  assert.equal(resolveTarget(root, dir).address, "s-aaaaaaaaaaaa");
 });
 
-test("a path that does not exist yet is still addressable (the successor case)", () => {
+test("a directory with no registered session is an error, not a ghost mailbox", () => {
   const root = newRoot();
-  const future = join(tmpdir(), "post-not-yet", "worktree");
-  const resolved = resolveTarget(root, future);
-  assert.equal(resolved.address, standingAddress(canonicalPath(future)));
+  assert.throws(
+    () => resolveTarget(root, join(tmpdir(), "post-not-yet", "worktree")),
+    UnknownTargetError,
+  );
 });
 
-test("a unique session name resolves; relative to nothing else", () => {
+test("a directory shared by live and offline sessions resolves to the live one", () => {
   const root = newRoot();
-  writeRecord(root, record({}));
-  assert.equal(resolveTarget(root, "gtm").address, "s-aaaaaaaaaaaa");
+  const dir = canonicalPath(mkdtempSync(join(tmpdir(), "post-target-")));
+  writeRecord(root, record({ address: "s-aaaaaaaaaaaa", cwd: dir, pid: undefined }));
+  writeRecord(root, record({ address: "s-bbbbbbbbbbbb", cwd: dir, pid: process.pid }));
+  assert.equal(resolveTarget(root, dir).address, "s-bbbbbbbbbbbb");
 });
 
-test("ambiguity refuses rather than guesses, unless liveness disambiguates", () => {
+test("a directory with several live sessions refuses rather than guesses", () => {
+  const root = newRoot();
+  const dir = canonicalPath(mkdtempSync(join(tmpdir(), "post-target-")));
+  writeRecord(root, record({ address: "s-aaaaaaaaaaaa", cwd: dir, pid: process.pid }));
+  writeRecord(root, record({ address: "s-bbbbbbbbbbbb", cwd: dir, pid: process.pid }));
+  assert.throws(() => resolveTarget(root, dir), AmbiguousTargetError);
+});
+
+test("a unique session name resolves; liveness breaks name ties", () => {
   const root = newRoot();
   writeRecord(root, record({ address: "s-aaaaaaaaaaaa", pid: undefined }));
-  writeRecord(root, record({ address: "s-bbbbbbbbbbbb", cwd: "/elsewhere/gtm", pid: process.pid }));
+  assert.equal(resolveTarget(root, "gtm").address, "s-aaaaaaaaaaaa");
 
-  // Two matches, one live: the live one wins.
+  writeRecord(root, record({ address: "s-bbbbbbbbbbbb", cwd: "/elsewhere/gtm", pid: process.pid }));
   assert.equal(resolveTarget(root, "gtm").address, "s-bbbbbbbbbbbb");
 
-  // Two live matches: refuse.
   writeRecord(root, record({ address: "s-aaaaaaaaaaaa", pid: process.pid }));
   assert.throws(() => resolveTarget(root, "gtm"), AmbiguousTargetError);
 });

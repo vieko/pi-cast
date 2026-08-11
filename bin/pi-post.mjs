@@ -31,13 +31,12 @@ import { basename, isAbsolute, join, resolve } from "node:path";
 
 const MAX_BODY_BYTES = 32 * 1024;
 const BACKLOG_CAP = 50;
-const ADDRESS_RE = /^[sw]-[0-9a-f]{12}$/;
+const ADDRESS_RE = /^s-[0-9a-f]{12}$/;
 
 const root = process.env.PI_POST_DIR || join(homedir(), ".pi", "agent", "post");
 
 const h12 = (input) => createHash("sha256").update(input).digest("hex").slice(0, 12);
 const sessionAddress = (sessionId) => `s-${h12(`session\0${sessionId}`)}`;
-const standingAddress = (dir) => `w-${h12(`standing\0${dir}`)}`;
 
 function canonicalPath(path) {
   let expanded = path;
@@ -86,36 +85,45 @@ function pidAlive(pid) {
 
 const isLive = (record) => record.pid !== undefined && pidAlive(record.pid);
 
+
+
+function fail(message) {
+  console.error(`pi-post: ${message}`);
+  process.exit(1);
+}
+
+/** Live sessions outrank offline ones; a remaining tie is refused, never guessed. */
+function pick(target, matches) {
+  const live = matches.filter(isLive);
+  const pool = live.length > 0 ? live : matches;
+  if (pool.length === 1) {
+    const record = pool[0];
+    return { address: record.address, display: `${record.name} (${record.cwd})`, record };
+  }
+  fail(`"${target}" matches more than one session; use an address:\n` +
+    pool.map((r) => `  ${r.name} (${r.address}) — ${r.cwd}`).join("\n"));
+}
+
 function resolveTarget(target) {
   const t = target.trim();
   if (ADDRESS_RE.test(t)) {
     return { address: t, display: t, record: listRecords().find((r) => r.address === t) };
   }
+  const records = listRecords();
   if (looksLikePath(t)) {
     const canonical = canonicalPath(t);
-    return { address: standingAddress(canonical), display: canonical };
+    const matches = records.filter((r) => r.cwd === canonical);
+    if (matches.length === 0) {
+      fail(`no session is registered in ${canonical} — a directory names the session running in it`);
+    }
+    return pick(t, matches);
   }
-  const records = listRecords();
   const byName = records.filter((r) => r.name === t);
-  let matches = byName.length > 0 ? byName : records.filter((r) => basename(r.cwd) === t);
-  if (matches.length > 1) {
-    const live = matches.filter(isLive);
-    if (live.length === 1) matches = live;
+  const matches = byName.length > 0 ? byName : records.filter((r) => basename(r.cwd) === t);
+  if (matches.length === 0) {
+    fail(`"${t}" is not an address, a directory with a registered session, or a known session name`);
   }
-  if (matches.length === 1) {
-    const record = matches[0];
-    return { address: record.address, display: `${record.name} (${record.cwd})`, record };
-  }
-  if (matches.length > 1) {
-    fail(`"${t}" matches more than one session; use an address:\n` +
-      matches.map((r) => `  ${r.name} (${r.address}) — ${r.cwd}`).join("\n"));
-  }
-  fail(`"${t}" is not an address, a directory path, or a known session name`);
-}
-
-function fail(message) {
-  console.error(`pi-post: ${message}`);
-  process.exit(1);
+  return pick(t, matches);
 }
 
 function parseArgs(argv) {
@@ -183,10 +191,7 @@ async function send(args) {
   writeFileSync(`${path}.tmp`, JSON.stringify(message), { mode: 0o600 });
   renameSync(`${path}.tmp`, path);
 
-  const live = target.record
-    ? isLive(target.record)
-    : target.address.startsWith("w-") &&
-      listRecords().some((r) => r.standing === target.address && isLive(r));
+  const live = target.record ? isLive(target.record) : false;
   let consumed = false;
   if (live) {
     const deadline = Date.now() + 1500;

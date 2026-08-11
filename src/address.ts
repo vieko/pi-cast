@@ -3,10 +3,7 @@ import { realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 
-/** A session address names a conversation; a standing address names a place. */
-export type AddressKind = "session" | "standing";
-
-const ADDRESS_RE = /^[sw]-[0-9a-f]{12}$/;
+const ADDRESS_RE = /^s-[0-9a-f]{12}$/;
 
 function h12(input: string): string {
   return createHash("sha256").update(input).digest("hex").slice(0, 12);
@@ -15,11 +12,6 @@ function h12(input: string): string {
 /** Stable address for a pi session id. Survives restarts and `pi -c`. */
 export function sessionAddress(sessionId: string): string {
   return `s-${h12(`session\0${sessionId}`)}`;
-}
-
-/** Stable address for a directory. Exists before and after any session. */
-export function standingAddress(canonicalDir: string): string {
-  return `w-${h12(`standing\0${canonicalDir}`)}`;
 }
 
 /**
@@ -43,11 +35,7 @@ export function isAddress(value: string): boolean {
   return ADDRESS_RE.test(value);
 }
 
-export function addressKind(address: string): AddressKind {
-  return address.startsWith("s-") ? "session" : "standing";
-}
-
-/** Heuristic: does this target string denote a path rather than a name? */
+/** Heuristic: does this target string denote a path (a query for the session running there)? */
 export function looksLikePath(target: string): boolean {
   return (
     target === "~" ||

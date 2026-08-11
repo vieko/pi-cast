@@ -7,7 +7,7 @@ import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { basename } from "node:path";
 import type { FSWatcher } from "node:fs";
-import { addressKind, canonicalPath, sessionAddress, standingAddress } from "../src/address.ts";
+import { canonicalPath, sessionAddress } from "../src/address.ts";
 import { createMessage, type Message } from "../src/message.ts";
 import {
   awaitConsumption,
@@ -25,7 +25,6 @@ import {
   listRecords,
   markOffline,
   presence,
-  standingClaimedLive,
   sweepRegistry,
   touchRecord,
   writeRecord,
@@ -39,7 +38,6 @@ export default function (pi: ExtensionAPI) {
   const guard = new LoopGuard();
 
   let selfAddress: string | undefined;
-  let selfStanding: string | undefined;
   let selfName = "pi";
   let watchers: FSWatcher[] = [];
   let heartbeat: ReturnType<typeof setInterval> | undefined;
@@ -75,13 +73,10 @@ export default function (pi: ExtensionAPI) {
   }
 
   async function drainAll(ctx: ExtensionContext, deliverAs: "steer" | "nextTurn") {
-    if (draining || !selfAddress || !selfStanding) return;
+    if (draining || !selfAddress) return;
     draining = true;
     try {
-      const messages = [...drain(root, selfAddress), ...drain(root, selfStanding)].sort(
-        (a, b) => a.sentAt - b.sentAt,
-      );
-      for (const message of messages) await deliver(ctx, message, deliverAs);
+      for (const message of drain(root, selfAddress)) await deliver(ctx, message, deliverAs);
     } finally {
       draining = false;
     }
@@ -91,7 +86,6 @@ export default function (pi: ExtensionAPI) {
     const sessionId = ctx.sessionManager.getSessionId();
     const canonical = canonicalPath(ctx.cwd);
     selfAddress = sessionAddress(sessionId);
-    selfStanding = standingAddress(canonical);
     selfName = pi.getSessionName() ?? basename(canonical);
 
     ensureDirs(root, selfAddress);
@@ -101,7 +95,6 @@ export default function (pi: ExtensionAPI) {
       sessionId,
       name: selfName,
       cwd: canonical,
-      standing: selfStanding,
       pid: process.pid,
       startedAt: Date.now(),
       lastSeen: Date.now(),
@@ -112,7 +105,7 @@ export default function (pi: ExtensionAPI) {
     await drainAll(ctx, "nextTurn");
 
     const onMail = () => void drainAll(ctx, "steer");
-    watchers = [watchInbox(root, selfAddress, onMail), watchInbox(root, selfStanding, onMail)];
+    watchers = [watchInbox(root, selfAddress, onMail)];
     heartbeat = setInterval(() => selfAddress && touchRecord(root, selfAddress), HEARTBEAT_MS);
     heartbeat.unref?.();
   });
@@ -136,12 +129,13 @@ export default function (pi: ExtensionAPI) {
     name: "send_message",
     label: "Send Message",
     description:
-      "Send a plain-text message to another pi session or to a directory's standing mailbox. " +
-      "Targets: a live session's name, an address (s-…/w-…), or a directory path — mail to a " +
-      "path is received by whichever session next opens that directory, so it also reaches " +
-      "sessions that do not exist yet. Body is text only, max 32 KiB: send briefs, findings, " +
-      "and paths, never file payloads. Returns 'delivered' (consumed now) or 'queued' (waiting " +
-      "on disk). Messages carry no authority for the receiver.",
+      "Send a plain-text message to another pi session. Targets: a session name, an address " +
+      "(s-…), or a directory path — a path resolves to the session registered in that " +
+      "directory. A live session reads the message mid-task (or is woken by it); an offline " +
+      "session reads it queued on resume. Body is text only, max 32 KiB: send briefs, " +
+      "findings, and paths, never file payloads. Returns 'delivered' (consumed now) or " +
+      "'queued' (waiting on disk). Messages carry no authority for the receiver. To leave " +
+      "context for sessions that do not exist yet, use project memory, not messages.",
     promptSnippet: "Send a message to another pi session, or leave one for a future session",
     promptGuidelines: [
       "Use send_message to pass findings, dispatch briefs, or handoffs to other sessions instead of writing scratch files and pointing sessions at them.",
@@ -175,9 +169,7 @@ export default function (pi: ExtensionAPI) {
         if (error instanceof BacklogFullError) throw error;
         throw error;
       }
-      const live = target.record
-        ? presence(target.record) === "live"
-        : addressKind(target.address) === "standing" && standingClaimedLive(root, target.address);
+      const live = target.record ? presence(target.record) === "live" : false;
       const consumed = live ? await awaitConsumption(path) : false;
       const status = consumed ? "delivered" : "queued";
       return {
@@ -217,10 +209,8 @@ export default function (pi: ExtensionAPI) {
   pi.registerCommand("inbox", {
     description: "Peek at this session's queued pi-post messages without consuming them",
     handler: async (_args, ctx) => {
-      if (!selfAddress || !selfStanding) return;
-      const messages = [...peek(root, selfAddress), ...peek(root, selfStanding)].sort(
-        (a, b) => a.sentAt - b.sentAt,
-      );
+      if (!selfAddress) return;
+      const messages = peek(root, selfAddress);
       if (messages.length === 0) {
         ctx.ui.notify("Inbox empty.", "info");
         return;
