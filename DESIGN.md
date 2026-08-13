@@ -34,6 +34,22 @@ query, not an address**: it resolves to the session registered in that
 directory (live outranks offline; a remaining tie is refused with
 candidates listed). Nothing can be addressed that does not exist.
 
+**Every handle resolves; no identifier is a dead end.** The registry is
+a bidirectional directory: a target may be an address, a live session's
+name, a directory path, or pi's own session id (or a unique prefix of
+one — hex-looking strings fall through to name matching when no session
+id matches). In the other direction, listings carry each session's
+resume handle (`pi --session …`, three UUID groups: the UUIDv7
+timestamp plus random bits) beside its address, and `pi-post resolve
+<handle>` prints the full record — name, address, session id, presence,
+cwd, resume command. The address stays a hash on purpose: deriving it
+from the session id would couple the wire contract to pi's id format
+and, with UUIDv7, collide on prefixes for sessions started close
+together. Surfacing the mapping the registry already stores gives the
+same ergonomics without touching the contract. Printing a resume handle
+is directory information, not lifecycle management — pi-post still
+never spawns or resumes anything itself.
+
 v0.2.0 had a second kind — standing addresses, one per directory, so
 mail could wait for sessions that did not exist yet. Removed in v0.3.0:
 in a busy repository, directory identity is not task identity, so

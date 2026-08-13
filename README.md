@@ -44,14 +44,20 @@ resume. A directory path as a target is a *query* — it resolves to the
 session registered in that directory, live sessions first, ambiguity
 refused.
 
+**Every handle resolves.** Target a session by name, address, directory
+path, or pi's own session id (or a unique prefix). In the other
+direction, every listing carries the session's resume handle —
+`[pi --session …]`, run from its directory — so nothing pi-post shows
+you is a dead end: anything you can see, you can message *and* reopen.
+
 **Wake-on-idle delivery.** A message to an idle session starts its turn.
 Spawn a worker in its worktree, send the brief — the brief *is* the
 worker's first turn. No "check your mail" incantations.
 
-**Two tools.** `send_message` sends text to a session, path, or address and
-reports **delivered** (consumed now) or **queued** (waiting on disk).
-`list_sessions` shows known sessions, presence, and queued mail. `/inbox`
-peeks without consuming.
+**Two tools.** `send_message` sends text to a session, path, address, or
+session id and reports **delivered** (consumed now) or **queued** (waiting
+on disk). `list_sessions` shows known sessions, presence, queued mail, and
+resume handles. `/inbox` peeks without consuming.
 
 **A CLI for everything that isn't a pi session.** `pi-post send` lets an
 autonomous run's exit hook, a Claude Code hook, or any script mail a
@@ -74,11 +80,12 @@ Nothing to enable; every session registers itself on startup.
 
 | Surface | Effect |
 |---|---|
-| `send_message` (tool) | Send text to a session, path, or address; reports **delivered** or **queued** |
-| `list_sessions` (tool) | Known sessions, presence, queued mail counts |
+| `send_message` (tool) | Send text to a session, path, address, or session id; reports **delivered** or **queued** |
+| `list_sessions` (tool) | Known sessions, presence, queued mail counts, resume handles |
 | `/inbox` | Peek at this session's queued messages without consuming them |
 | `/peers` | The `list_sessions` listing, without spending a model turn |
 | `pi-post send` (CLI) | Send from any process: `--to`, `--body`/stdin, `--from`, `--reply-to` |
+| `pi-post resolve <handle>` (CLI) | One session's full record: name, address, session id, presence, cwd, resume command |
 | `pi-post list` / `peek` / `whoami` (CLI) | Inspect the registry, a mailbox, or your own address |
 
 Ask in words; the model picks the tool.

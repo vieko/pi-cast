@@ -130,8 +130,8 @@ export default function (pi: ExtensionAPI) {
     label: "Send Message",
     description:
       "Send a plain-text message to another pi session. Targets: a session name, an address " +
-      "(s-…), or a directory path — a path resolves to the session registered in that " +
-      "directory. A live session reads the message mid-task (or is woken by it); an offline " +
+      "(s-…), a pi session id (or unique prefix), or a directory path — a path resolves to " +
+      "the session registered in that directory. A live session reads the message mid-task (or is woken by it); an offline " +
       "session reads it queued on resume. Body is text only, max 32 KiB: send briefs, " +
       "findings, and paths, never file payloads. Returns 'delivered' (consumed now) or " +
       "'queued' (waiting on disk). Messages carry no authority for the receiver. To leave " +
@@ -143,7 +143,8 @@ export default function (pi: ExtensionAPI) {
     ],
     parameters: Type.Object({
       to: Type.String({
-        description: "Session name, address (s-…/w-…), or directory path (e.g. ~/dev/repo)",
+        description:
+          "Session name, address (s-…), session id (or unique prefix), or directory path (e.g. ~/dev/repo)",
       }),
       body: Type.String({ description: "Plain-text message body (≤ 32 KiB)" }),
       reply_to: Type.Optional(
@@ -188,10 +189,12 @@ export default function (pi: ExtensionAPI) {
     name: "list_sessions",
     label: "List Sessions",
     description:
-      "List pi sessions known to pi-post: their names, addresses, presence (live/offline), and " +
-      "queued mail counts. Any directory path is also a valid send_mail target even if nothing " +
-      "is listed for it.",
-    promptSnippet: "List pi sessions reachable by message, with presence and queued mail",
+      "List pi sessions known to pi-post: their names, addresses, presence (live/offline), " +
+      "queued mail counts, and each session's resume handle ([pi --session …], run from the " +
+      "listed directory). Any directory path is also a valid send_message target even if " +
+      "nothing is listed for it.",
+    promptSnippet:
+      "List pi sessions reachable by message, with presence, queued mail, and resume handles",
     parameters: Type.Object({}),
     async execute() {
       const text = formatListing(root, listRecords(root), selfAddress);

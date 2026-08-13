@@ -74,3 +74,36 @@ test("an unknown name is an error, not a silent mailbox", () => {
   const root = newRoot();
   assert.throws(() => resolveTarget(root, "nonesuch"), UnknownTargetError);
 });
+
+test("a full session id resolves to the session's address", () => {
+  const root = newRoot();
+  writeRecord(root, record({ sessionId: "019fd2b2-93d5-7447-b42a-c740be761735" }));
+  assert.equal(
+    resolveTarget(root, "019fd2b2-93d5-7447-b42a-c740be761735").address,
+    "s-aaaaaaaaaaaa",
+  );
+});
+
+test("a unique session id prefix resolves", () => {
+  const root = newRoot();
+  writeRecord(root, record({ sessionId: "019fd2b2-93d5-7447-b42a-c740be761735" }));
+  assert.equal(resolveTarget(root, "019fd2b2-93d5").address, "s-aaaaaaaaaaaa");
+});
+
+test("an ambiguous session id prefix refuses rather than guesses", () => {
+  const root = newRoot();
+  writeRecord(root, record({ address: "s-aaaaaaaaaaaa", sessionId: "019fd2b2-93d5-7447-b42a-000000000001", pid: process.pid }));
+  writeRecord(root, record({ address: "s-bbbbbbbbbbbb", sessionId: "019fd2b2-93d5-7447-b42a-000000000002", cwd: "/elsewhere/gtm", pid: process.pid }));
+  assert.throws(() => resolveTarget(root, "019fd2b2"), AmbiguousTargetError);
+});
+
+test("a hex-looking string that matches no session id still resolves as a name", () => {
+  const root = newRoot();
+  writeRecord(root, record({ name: "deadbeefcafe" }));
+  assert.equal(resolveTarget(root, "deadbeefcafe").address, "s-aaaaaaaaaaaa");
+});
+
+test("an unknown session id is an error, not a silent mailbox", () => {
+  const root = newRoot();
+  assert.throws(() => resolveTarget(root, "019fffff-0000-7000"), UnknownTargetError);
+});

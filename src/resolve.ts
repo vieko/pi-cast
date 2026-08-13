@@ -1,5 +1,5 @@
 import { basename } from "node:path";
-import { canonicalPath, isAddress, looksLikePath } from "./address.ts";
+import { canonicalPath, isAddress, looksLikePath, looksLikeSessionId } from "./address.ts";
 import { listRecords, presence, type SessionRecord } from "./registry.ts";
 
 export interface ResolvedTarget {
@@ -36,9 +36,10 @@ function pick(target: string, matches: SessionRecord[]): ResolvedTarget {
 }
 
 /**
- * Resolve a target string to a session address. Targets name sessions that
- * exist — a directory path is a *query* for the session registered in it,
- * not an address of its own. Refuses rather than guesses.
+ * Resolve a target string to a session address. Every handle a session has
+ * resolves: an address, a directory path (a *query* for the session
+ * registered there), pi's own session id (or a unique prefix), or a name.
+ * Refuses rather than guesses.
  */
 export function resolveTarget(root: string, target: string, cwd?: string): ResolvedTarget {
   const trimmed = target.trim();
@@ -61,11 +62,18 @@ export function resolveTarget(root: string, target: string, cwd?: string): Resol
     return pick(trimmed, matches);
   }
 
+  if (looksLikeSessionId(trimmed)) {
+    const lower = trimmed.toLowerCase();
+    const bySessionId = records.filter((r) => r.sessionId.toLowerCase().startsWith(lower));
+    if (bySessionId.length > 0) return pick(trimmed, bySessionId);
+    // fall through: a hex-looking string may still be a session name
+  }
+
   const byName = records.filter((r) => r.name === trimmed);
   const matches = byName.length > 0 ? byName : records.filter((r) => basename(r.cwd) === trimmed);
   if (matches.length === 0) {
     throw new UnknownTargetError(
-      `"${trimmed}" is not an address, a directory with a registered session, or a known session name`,
+      `"${trimmed}" is not an address, a session id, a directory with a registered session, or a known session name`,
     );
   }
   return pick(trimmed, matches);

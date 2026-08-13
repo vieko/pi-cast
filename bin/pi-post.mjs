@@ -9,6 +9,7 @@
  *
  *   pi-post send --to <target> [--body <text>] [--from <label>] [--reply-to <addr>|none]
  *   pi-post list
+ *   pi-post resolve <target>
  *   pi-post peek <target>
  *   pi-post whoami
  *
@@ -37,6 +38,8 @@ const root = process.env.PI_POST_DIR || join(homedir(), ".pi", "agent", "post");
 
 const h12 = (input) => createHash("sha256").update(input).digest("hex").slice(0, 12);
 const sessionAddress = (sessionId) => `s-${h12(`session\0${sessionId}`)}`;
+const looksLikeSessionId = (t) => /^[0-9a-f]{8}[0-9a-f-]{0,28}$/i.test(t);
+const resumeHandle = (sessionId) => (sessionId.length > 18 ? sessionId.slice(0, 18) : sessionId);
 
 function canonicalPath(path) {
   let expanded = path;
@@ -118,10 +121,15 @@ function resolveTarget(target) {
     }
     return pick(t, matches);
   }
+  if (looksLikeSessionId(t)) {
+    const bySessionId = records.filter((r) => r.sessionId.toLowerCase().startsWith(t.toLowerCase()));
+    if (bySessionId.length > 0) return pick(t, bySessionId);
+    // fall through: a hex-looking string may still be a session name
+  }
   const byName = records.filter((r) => r.name === t);
   const matches = byName.length > 0 ? byName : records.filter((r) => basename(r.cwd) === t);
   if (matches.length === 0) {
-    fail(`"${t}" is not an address, a directory with a registered session, or a known session name`);
+    fail(`"${t}" is not an address, a session id, a directory with a registered session, or a known session name`);
   }
   return pick(t, matches);
 }
@@ -207,6 +215,14 @@ async function send(args) {
   console.log(`${consumed ? "delivered" : "queued"} ${target.address} ${message.id}`);
 }
 
+function queuedCount(address) {
+  try {
+    return readdirSync(join(root, "inbox", address)).filter((n) => n.endsWith(".json")).length;
+  } catch {
+    return 0;
+  }
+}
+
 function list() {
   const records = listRecords().sort((a, b) => b.lastSeen - a.lastSeen);
   if (records.length === 0) {
@@ -214,16 +230,33 @@ function list() {
     return;
   }
   for (const record of records) {
-    const queued = (() => {
-      try {
-        return readdirSync(join(root, "inbox", record.address)).filter((n) => n.endsWith(".json")).length;
-      } catch {
-        return 0;
-      }
-    })();
+    const queued = queuedCount(record.address);
     const mail = queued > 0 ? `, ${queued} queued` : "";
-    console.log(`${record.name} — ${record.address} (${isLive(record) ? "live" : "offline"}${mail}) ${record.cwd}`);
+    console.log(
+      `${record.name} — ${record.address} (${isLive(record) ? "live" : "offline"}${mail}) ${record.cwd} ` +
+        `[pi --session ${resumeHandle(record.sessionId)}]`,
+    );
   }
+}
+
+/** The directory answer for one session: every handle it has, in both directions. */
+function resolveCmd(args) {
+  const targetArg = args._[1];
+  if (!targetArg) fail("resolve requires a target (address, session id, path, or session name)");
+  const target = resolveTarget(targetArg);
+  const record = target.record;
+  if (!record) {
+    console.log(`address:  ${target.address}`);
+    console.log("no registry record — the session never registered here, or its record was swept");
+    return;
+  }
+  const queued = queuedCount(record.address);
+  console.log(`name:     ${record.name}`);
+  console.log(`address:  ${record.address}`);
+  console.log(`session:  ${record.sessionId}`);
+  console.log(`presence: ${isLive(record) ? "live" : "offline"}${queued > 0 ? `, ${queued} queued` : ""}`);
+  console.log(`cwd:      ${record.cwd}`);
+  console.log(`resume:   cd ${record.cwd} && pi --session ${resumeHandle(record.sessionId)}`);
 }
 
 function peek(args) {
@@ -267,6 +300,9 @@ switch (command) {
   case "list":
     list();
     break;
+  case "resolve":
+    resolveCmd(args);
+    break;
   case "peek":
     peek(args);
     break;
@@ -275,6 +311,6 @@ switch (command) {
     break;
   default:
     console.log("usage: pi-post send --to <target> [--body <text>] [--from <label>] [--reply-to <addr>|none]");
-    console.log("       pi-post list | peek <target> | whoami");
+    console.log("       pi-post list | resolve <target> | peek <target> | whoami");
     process.exit(command ? 1 : 0);
 }

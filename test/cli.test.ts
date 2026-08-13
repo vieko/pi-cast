@@ -102,6 +102,53 @@ test("an unknown name fails loudly instead of creating a dead mailbox", () => {
   assert.match(result.stderr, /not an address/);
 });
 
+test("a session id is a valid send target, exactly like the extension resolves it", () => {
+  const root = newRoot();
+  const dir = mkdtempSync(join(tmpdir(), "post-cli-target-"));
+  const record: SessionRecord = {
+    v: 1,
+    address: "s-abcdefabcdef",
+    sessionId: "019fd2b2-93d5-7447-b42a-c740be761735",
+    name: "target",
+    cwd: canonicalPath(dir),
+    startedAt: 0,
+    lastSeen: Date.now(),
+  };
+  writeRecord(root, record);
+  const result = run(root, ["send", "--to", "019fd2b2-93d5", "--body", "by session id"]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(drain(root, "s-abcdefabcdef")[0]!.body, "by session id");
+});
+
+test("resolve prints the full directory record, resume command included", () => {
+  const root = newRoot();
+  const dir = mkdtempSync(join(tmpdir(), "post-cli-target-"));
+  const record: SessionRecord = {
+    v: 1,
+    address: "s-abcdefabcdef",
+    sessionId: "019fd2b2-93d5-7447-b42a-c740be761735",
+    name: "target",
+    cwd: canonicalPath(dir),
+    startedAt: 0,
+    lastSeen: Date.now(),
+  };
+  writeRecord(root, record);
+  const result = run(root, ["resolve", "target"]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /name: {5}target/);
+  assert.match(result.stdout, /address: {2}s-abcdefabcdef/);
+  assert.match(result.stdout, /session: {2}019fd2b2-93d5-7447-b42a-c740be761735/);
+  assert.match(result.stdout, /presence: offline/);
+  assert.match(result.stdout, new RegExp(`resume: {3}cd ${canonicalPath(dir)} && pi --session 019fd2b2-93d5-7447`));
+});
+
+test("resolve on a bare address with no record says so instead of inventing one", () => {
+  const root = newRoot();
+  const result = run(root, ["resolve", "s-abcdefabcdef"]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /no registry record/);
+});
+
 test("whoami prints the same session address the extension would register", () => {
   const root = newRoot();
   const result = run(root, ["whoami"], { PI_SESSION_ID: "sess-xyz" });
