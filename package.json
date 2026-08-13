@@ -1,6 +1,6 @@
 {
   "name": "pi-post",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Messages between pi sessions — delivered mid-task or queued until they return. Briefs, findings, and handoffs straight into the receiving agent's context.",
   "keywords": [
     "pi-package",
