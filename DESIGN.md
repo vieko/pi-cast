@@ -144,7 +144,9 @@ where a UI exists (falls back to accept headless), `refuse` drops.
   do not exist yet — is the caller's convention. Successor handoffs
   belong in project memory (which any number of future sessions can
   read), not in a consume-once message that exactly one arbitrary
-  session would destroy on reading.
+  session would destroy on reading. Briefs for workers that do not
+  exist yet travel at spawn (`pi @brief.md` or the first prompt); see
+  README § Dispatch patterns.
 - Cross-machine anything. Two parties can reach each other exactly when
   they share a filesystem.
 - Messaging *into* other runtimes (e.g. Claude Code sessions). Inbound

@@ -141,8 +141,7 @@ export default function (pi: ExtensionAPI) {
       "context for sessions that do not exist yet, use project memory, not messages.",
     promptSnippet: "Send a message to another pi session, or leave one for a future session",
     promptGuidelines: [
-      "Use send_message to pass findings, dispatch briefs, or handoffs to other sessions instead of writing scratch files and pointing sessions at them.",
-      "When dispatching work with send_message, set reply_to so results route back automatically.",
+      "Use send_message to pass findings, status, and results to other sessions instead of writing scratch files and pointing sessions at them. Replies route to the sender automatically.",
     ],
     parameters: Type.Object({
       to: Type.Union([Type.String(), Type.Array(Type.String())], {
@@ -154,7 +153,9 @@ export default function (pi: ExtensionAPI) {
       body: Type.String({ description: "Plain-text message body (≤ 32 KiB)" }),
       reply_to: Type.Optional(
         Type.String({
-          description: "Address for replies; defaults to this session. Pass 'none' to omit.",
+          description:
+            "Rarely needed: replies route to this session by default. Set an address to " +
+            "redirect them to a third session, or 'none' to omit.",
         }),
       ),
     }),
