@@ -25,6 +25,7 @@ import {
   listRecords,
   markOffline,
   presence,
+  sweepInboxes,
   sweepRegistry,
   touchRecord,
   writeRecord,
@@ -100,6 +101,7 @@ export default function (pi: ExtensionAPI) {
       lastSeen: Date.now(),
     });
     sweepRegistry(root);
+    sweepInboxes(root);
 
     // Queued mail waits in context for the first prompt; it never starts a turn.
     await drainAll(ctx, "nextTurn");

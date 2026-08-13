@@ -116,7 +116,10 @@ Each is pinned by a test.
 - **A reader never sees half a message.** Rename-into-place; only
   `.json` is read.
 - **Nothing is delivered twice.** Unlink before handling.
-- **Mail outranks tidiness.** No sweep deletes a non-empty mailbox.
+- **Mail outranks tidiness.** No sweep deletes a non-empty mailbox, and
+  queued mail pins the target's registry record: a record is swept only
+  when it is offline, stale (7 days), *and* its mailbox is empty. Empty
+  inbox directories no record names are removed.
 - **Loops terminate structurally.** Identical body from one sender inside
   10 s is dropped; a sender is throttled past 8 messages in 30 s; a
   mailbox stops accepting at 50 queued messages. Independent of model

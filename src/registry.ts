@@ -1,6 +1,6 @@
-import { readdirSync, readFileSync, unlinkSync, writeFileSync, renameSync, mkdirSync } from "node:fs";
+import { readdirSync, readFileSync, rmdirSync, unlinkSync, writeFileSync, renameSync, mkdirSync } from "node:fs";
 import { basename, join } from "node:path";
-import { registryDir } from "./mailbox.ts";
+import { queuedCount, registryDir } from "./mailbox.ts";
 
 export interface SessionRecord {
   v: 1;
@@ -91,16 +91,46 @@ export function presence(record: SessionRecord): Presence {
 }
 
 
-/** Remove registry records for sessions that are offline and stale. Mail is never touched. */
-export function sweepRegistry(root: string, maxAgeMs = 30 * 24 * 60 * 60 * 1000): void {
+/**
+ * Remove registry records for sessions that are offline and stale. A record
+ * whose mailbox holds mail is never swept: queued mail would still deliver on
+ * resume (the address derives from the session id), but losing the record
+ * hides the queued count and breaks name/path resolution to the target.
+ */
+export function sweepRegistry(root: string, maxAgeMs = 7 * 24 * 60 * 60 * 1000): void {
   const now = Date.now();
   for (const record of listRecords(root)) {
-    if (presence(record) === "offline" && now - record.lastSeen > maxAgeMs) {
-      try {
-        unlinkSync(join(registryDir(root), `${record.address}.json`));
-      } catch {
-        // already gone
-      }
+    if (presence(record) !== "offline") continue;
+    if (now - record.lastSeen <= maxAgeMs) continue;
+    if (queuedCount(root, record.address) > 0) continue; // mail keeps the record alive
+    try {
+      unlinkSync(join(registryDir(root), `${record.address}.json`));
+    } catch {
+      // already gone
+    }
+  }
+}
+
+/**
+ * Remove empty inbox directories that no registry record names (orphans from
+ * swept records or removed address schemes). `rmdirSync` refuses non-empty
+ * directories, so queued mail or a mid-flight `.tmp` deposit blocks removal
+ * structurally — mail outranks tidiness.
+ */
+export function sweepInboxes(root: string): void {
+  const known = new Set(listRecords(root).map((r) => r.address));
+  let names: string[];
+  try {
+    names = readdirSync(join(root, "inbox"));
+  } catch {
+    return;
+  }
+  for (const name of names) {
+    if (known.has(name)) continue;
+    try {
+      rmdirSync(join(root, "inbox", name));
+    } catch {
+      // non-empty or already gone
     }
   }
 }

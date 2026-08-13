@@ -5,12 +5,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createMessage } from "../src/message.ts";
 import { deposit, queuedCount } from "../src/mailbox.ts";
+import { existsSync, mkdirSync } from "node:fs";
 import {
   defaultSessionName,
   listRecords,
   markOffline,
   presence,
   readRecord,
+  sweepInboxes,
   sweepRegistry,
   writeRecord,
   type SessionRecord,
@@ -60,19 +62,45 @@ test("a dead pid reads as offline even if shutdown never ran", () => {
   assert.equal(presence(readRecord(root, "s-aaaaaaaaaaaa")!), "offline");
 });
 
-test("sweep removes only stale offline records, and mail is never touched", () => {
+test("sweep removes stale offline records, but queued mail pins a record in place", () => {
   const root = newRoot();
-  const stale = record({ address: "s-bbbbbbbbbbbb", pid: undefined, lastSeen: Date.now() - 60 * 24 * 3600 * 1000 });
-  writeRecord(root, stale);
+  const staleAge = Date.now() - 60 * 24 * 3600 * 1000;
+  writeRecord(root, record({ address: "s-bbbbbbbbbbbb", pid: undefined, lastSeen: staleAge }));
+  writeRecord(root, record({ address: "s-cccccccccccc", pid: undefined, lastSeen: staleAge }));
   writeRecord(root, record()); // live, keeps its record
 
-  // Stale session still has queued mail in its inbox.
-  deposit(root, "s-bbbbbbbbbbbb", createMessage({ from: { kind: "process", name: "t" }, body: "waits" }));
+  // One stale session still has queued mail in its inbox.
+  deposit(root, "s-cccccccccccc", createMessage({ from: { kind: "process", name: "t" }, body: "waits" }));
 
   sweepRegistry(root);
 
   const addresses = listRecords(root).map((r) => r.address);
-  assert.ok(!addresses.includes("s-bbbbbbbbbbbb"), "stale record swept");
+  assert.ok(!addresses.includes("s-bbbbbbbbbbbb"), "stale empty record swept");
   assert.ok(addresses.includes("s-aaaaaaaaaaaa"), "live record kept");
-  assert.equal(queuedCount(root, "s-bbbbbbbbbbbb"), 1, "mail outranks tidiness");
+  assert.ok(addresses.includes("s-cccccccccccc"), "queued mail keeps the record alive");
+  assert.equal(queuedCount(root, "s-cccccccccccc"), 1, "mail outranks tidiness");
+});
+
+test("a record inside the TTL survives the sweep even with an empty mailbox", () => {
+  const root = newRoot();
+  writeRecord(root, record({ address: "s-bbbbbbbbbbbb", pid: undefined, lastSeen: Date.now() - 3600 * 1000 }));
+  sweepRegistry(root);
+  assert.ok(listRecords(root).some((r) => r.address === "s-bbbbbbbbbbbb"));
+});
+
+test("inbox sweep removes only empty orphan mailboxes", () => {
+  const root = newRoot();
+  writeRecord(root, record()); // s-aaaaaaaaaaaa has a record
+
+  const inbox = (address: string) => join(root, "inbox", address);
+  mkdirSync(inbox("s-aaaaaaaaaaaa"), { recursive: true });
+  mkdirSync(inbox("w-000000000000"), { recursive: true }); // orphan, empty
+  deposit(root, "s-dddddddddddd", createMessage({ from: { kind: "process", name: "t" }, body: "waits" })); // orphan, but holds mail
+
+  sweepInboxes(root);
+
+  assert.ok(existsSync(inbox("s-aaaaaaaaaaaa")), "registered mailbox kept");
+  assert.ok(!existsSync(inbox("w-000000000000")), "empty orphan removed");
+  assert.ok(existsSync(inbox("s-dddddddddddd")), "orphan with mail kept");
+  assert.equal(queuedCount(root, "s-dddddddddddd"), 1);
 });
