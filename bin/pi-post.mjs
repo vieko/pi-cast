@@ -7,7 +7,7 @@
  * src/ (which is TypeScript) so it runs under bare node. test/cli.test.ts
  * pins that both sides stay in agreement.
  *
- *   pi-post send --to <target> [--body <text>] [--from <label>] [--reply-to <addr>|none]
+ *   pi-post send --to <target> [--to <target> …] [--body <text>] [--from <label>] [--reply-to <addr>|none]
  *   pi-post list
  *   pi-post resolve <target>
  *   pi-post peek <target>
@@ -32,6 +32,7 @@ import { basename, isAbsolute, join, resolve } from "node:path";
 
 const MAX_BODY_BYTES = 32 * 1024;
 const BACKLOG_CAP = 50;
+const MAX_TARGETS = 8;
 const ADDRESS_RE = /^s-[0-9a-f]{12}$/;
 
 const root = process.env.PI_POST_DIR || join(homedir(), ".pi", "agent", "post");
@@ -145,7 +146,12 @@ function parseArgs(argv) {
         args[key] = true;
         continue;
       }
-      args[key] = argv[i + 1];
+      const value = argv[i + 1];
+      if (key === "to" && args.to !== undefined) {
+        args.to = Array.isArray(args.to) ? [...args.to, value] : [args.to, value];
+      } else {
+        args[key] = value;
+      }
       i++;
     } else {
       args._.push(arg);
@@ -175,7 +181,18 @@ async function send(args) {
     fail(`body is ${bytes} bytes; the cap is ${MAX_BODY_BYTES} (send a summary and a path, not a payload)`);
   }
 
-  const target = resolveTarget(args.to);
+  // Resolve everything before depositing anything: an unresolvable target
+  // fails the whole send, never a partial delivery. Duplicate handles for
+  // one session collapse to a single deposit.
+  const requested = Array.isArray(args.to) ? args.to : [args.to];
+  if (requested.length > MAX_TARGETS) {
+    fail(`${requested.length} targets in one send; the cap is ${MAX_TARGETS} — a wider fan-out is a broadcast, not a message`);
+  }
+  const targets = [];
+  for (const t of requested) {
+    const resolved = resolveTarget(t);
+    if (!targets.some((existing) => existing.address === resolved.address)) targets.push(resolved);
+  }
   const replyToArg = args["reply-to"] ?? defaultReplyTo();
   const replyTo = replyToArg === "none" ? undefined : replyToArg;
   const from = {
@@ -184,40 +201,46 @@ async function send(args) {
     cwd: process.cwd(),
   };
 
-  const sentAt = Date.now();
-  const message = {
-    v: 1,
-    id: `${String(sentAt).padStart(13, "0")}-${randomBytes(4).toString("hex")}`,
-    from,
-    ...(replyTo ? { replyTo } : {}),
-    sentAt,
-    body,
-  };
+  const deposits = [];
+  for (const target of targets) {
+    const sentAt = Date.now();
+    const message = {
+      v: 1,
+      id: `${String(sentAt).padStart(13, "0")}-${randomBytes(4).toString("hex")}`,
+      from,
+      ...(replyTo ? { replyTo } : {}),
+      sentAt,
+      body,
+    };
 
-  const dir = join(root, "inbox", target.address);
-  mkdirSync(dir, { recursive: true, mode: 0o700 });
-  const queued = readdirSync(dir).filter((n) => n.endsWith(".json"));
-  if (queued.length >= BACKLOG_CAP) {
-    fail(`mailbox ${target.address} holds ${BACKLOG_CAP} unread messages; not accepting more`);
-  }
-  const path = join(dir, `${message.id}.json`);
-  writeFileSync(`${path}.tmp`, JSON.stringify(message), { mode: 0o600 });
-  renameSync(`${path}.tmp`, path);
-
-  const live = target.record ? isLive(target.record) : false;
-  let consumed = false;
-  if (live) {
-    const deadline = Date.now() + 1500;
-    while (Date.now() < deadline) {
-      if (!existsSync(path)) {
-        consumed = true;
-        break;
-      }
-      await new Promise((r) => setTimeout(r, 50));
+    const dir = join(root, "inbox", target.address);
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    const queued = readdirSync(dir).filter((n) => n.endsWith(".json"));
+    if (queued.length >= BACKLOG_CAP) {
+      fail(`mailbox ${target.address} holds ${BACKLOG_CAP} unread messages; not accepting more`);
     }
-    if (!existsSync(path)) consumed = true;
+    const path = join(dir, `${message.id}.json`);
+    writeFileSync(`${path}.tmp`, JSON.stringify(message), { mode: 0o600 });
+    renameSync(`${path}.tmp`, path);
+    deposits.push({ target, message, path });
   }
-  console.log(`${consumed ? "delivered" : "queued"} ${target.address} ${message.id}`);
+
+  for (const { target, message, path } of deposits) {
+    const live = target.record ? isLive(target.record) : false;
+    let consumed = false;
+    if (live) {
+      const deadline = Date.now() + 1500;
+      while (Date.now() < deadline) {
+        if (!existsSync(path)) {
+          consumed = true;
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      if (!existsSync(path)) consumed = true;
+    }
+    console.log(`${consumed ? "delivered" : "queued"} ${target.address} ${message.id}`);
+  }
 }
 
 function queuedCount(address) {
@@ -343,7 +366,7 @@ switch (command) {
     whoami();
     break;
   default:
-    console.log("usage: pi-post send --to <target> [--body <text>] [--from <label>] [--reply-to <addr>|none]");
+    console.log("usage: pi-post send --to <target> [--to <target> …] [--body <text>] [--from <label>] [--reply-to <addr>|none]");
     console.log("       pi-post list [--all] | resolve <target> | peek <target> | whoami");
     process.exit(command ? 1 : 0);
 }

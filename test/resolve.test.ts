@@ -5,7 +5,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { canonicalPath } from "../src/address.ts";
 import { writeRecord, type SessionRecord } from "../src/registry.ts";
-import { AmbiguousTargetError, resolveTarget, UnknownTargetError } from "../src/resolve.ts";
+import {
+  AmbiguousTargetError,
+  resolveTarget,
+  resolveTargets,
+  TooManyTargetsError,
+  UnknownTargetError,
+} from "../src/resolve.ts";
 
 const newRoot = () => mkdtempSync(join(tmpdir(), "post-res-"));
 
@@ -117,4 +123,25 @@ test("a hex-looking string that matches no session id still resolves as a name",
 test("an unknown session id is an error, not a silent mailbox", () => {
   const root = newRoot();
   assert.throws(() => resolveTarget(root, "019fffff-0000-7000"), UnknownTargetError);
+});
+
+test("a batch resolves atomically: one bad target fails the whole send", () => {
+  const root = newRoot();
+  writeRecord(root, record({ address: "s-aaaaaaaaaaaa", name: "worker-1" }));
+  assert.throws(() => resolveTargets(root, ["worker-1", "nonesuch"]), UnknownTargetError);
+});
+
+test("two handles naming one session collapse to a single target", () => {
+  const root = newRoot();
+  writeRecord(root, record({ address: "s-aaaaaaaaaaaa", name: "worker-1", sessionId: "019fd2b2-93d5-7447-b42a-c740be761735" }));
+  const targets = resolveTargets(root, ["worker-1", "s-aaaaaaaaaaaa", "019fd2b2-93d5"]);
+  assert.equal(targets.length, 1);
+  assert.equal(targets[0]!.address, "s-aaaaaaaaaaaa");
+});
+
+test("more than eight targets is a broadcast, and broadcasts are refused", () => {
+  const root = newRoot();
+  const targets = Array.from({ length: 9 }, (_, i) => `s-${String(i).repeat(12)}`);
+  assert.throws(() => resolveTargets(root, targets), TooManyTargetsError);
+  assert.throws(() => resolveTargets(root, []), UnknownTargetError);
 });

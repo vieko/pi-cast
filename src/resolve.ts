@@ -24,6 +24,16 @@ export class UnknownTargetError extends Error {
   }
 }
 
+/** Beyond this many targets a send is a broadcast, which stays a non-goal. */
+export const MAX_TARGETS = 8;
+
+export class TooManyTargetsError extends Error {
+  constructor(count: number) {
+    super(`${count} targets in one send; the cap is ${MAX_TARGETS} — a wider fan-out is a broadcast, not a message`);
+    this.name = "TooManyTargetsError";
+  }
+}
+
 /** Live sessions outrank offline ones; a remaining tie is refused, never guessed. */
 function pick(target: string, matches: SessionRecord[]): ResolvedTarget {
   const live = matches.filter((r) => presence(r) === "live");
@@ -77,4 +87,20 @@ export function resolveTarget(root: string, target: string, cwd?: string): Resol
     );
   }
   return pick(trimmed, matches);
+}
+
+/**
+ * Resolve several targets before anything is deposited: any unknown or
+ * ambiguous target fails the whole batch, and two handles that name one
+ * session collapse to a single target.
+ */
+export function resolveTargets(root: string, targets: string[], cwd?: string): ResolvedTarget[] {
+  if (targets.length === 0) throw new UnknownTargetError("no targets given");
+  if (targets.length > MAX_TARGETS) throw new TooManyTargetsError(targets.length);
+  const byAddress = new Map<string, ResolvedTarget>();
+  for (const target of targets) {
+    const resolved = resolveTarget(root, target, cwd);
+    if (!byAddress.has(resolved.address)) byAddress.set(resolved.address, resolved);
+  }
+  return [...byAddress.values()];
 }

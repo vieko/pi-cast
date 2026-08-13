@@ -179,3 +179,29 @@ test("list is live-first with ages; --all reveals collapsed stale sessions", () 
   const full = run(root, ["list", "--all"]);
   assert.match(full.stdout, /stale .*\(offline 3d ago\)/);
 });
+
+test("repeated --to fans one body out to each target with distinct message ids", () => {
+  const root = newRoot();
+  const dirA = mkdtempSync(join(tmpdir(), "post-cli-target-"));
+  const dirB = mkdtempSync(join(tmpdir(), "post-cli-target-"));
+  const a = registerSession(root, dirA, "s-aaaaaaaaaaaa");
+  const b = registerSession(root, dirB, "s-bbbbbbbbbbbb");
+  const result = run(root, ["send", "--to", dirA, "--to", dirB, "--body", "same brief"]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim().split("\n").length, 2);
+
+  const inboxA = drain(root, a);
+  const inboxB = drain(root, b);
+  assert.equal(inboxA[0]!.body, "same brief");
+  assert.equal(inboxB[0]!.body, "same brief");
+  assert.notEqual(inboxA[0]!.id, inboxB[0]!.id);
+});
+
+test("one unresolvable target aborts the whole send: nothing is deposited", () => {
+  const root = newRoot();
+  const dir = mkdtempSync(join(tmpdir(), "post-cli-target-"));
+  const a = registerSession(root, dir, "s-aaaaaaaaaaaa");
+  const result = run(root, ["send", "--to", dir, "--to", "nonesuch", "--body", "brief"]);
+  assert.equal(result.status, 1);
+  assert.equal(drain(root, a).length, 0, "no partial delivery");
+});

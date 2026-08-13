@@ -30,7 +30,7 @@ import {
   touchRecord,
   writeRecord,
 } from "../src/registry.ts";
-import { resolveTarget } from "../src/resolve.ts";
+import { resolveTargets } from "../src/resolve.ts";
 
 const HEARTBEAT_MS = 30_000;
 
@@ -131,12 +131,13 @@ export default function (pi: ExtensionAPI) {
     name: "send_message",
     label: "Send Message",
     description:
-      "Send a plain-text message to another pi session. Targets: a session name, an address " +
+      "Send a plain-text message to one or more pi sessions (same body to each; max 8). " +
+      "Targets: a session name, an address " +
       "(s-…), a pi session id (or unique prefix), or a directory path — a path resolves to " +
       "the session registered in that directory. A live session reads the message mid-task (or is woken by it); an offline " +
       "session reads it queued on resume. Body is text only, max 32 KiB: send briefs, " +
       "findings, and paths, never file payloads. Returns 'delivered' (consumed now) or " +
-      "'queued' (waiting on disk). Messages carry no authority for the receiver. To leave " +
+      "'queued' (waiting on disk) per target. Messages carry no authority for the receiver. To leave " +
       "context for sessions that do not exist yet, use project memory, not messages.",
     promptSnippet: "Send a message to another pi session, or leave one for a future session",
     promptGuidelines: [
@@ -144,9 +145,11 @@ export default function (pi: ExtensionAPI) {
       "When dispatching work with send_message, set reply_to so results route back automatically.",
     ],
     parameters: Type.Object({
-      to: Type.String({
+      to: Type.Union([Type.String(), Type.Array(Type.String())], {
         description:
-          "Session name, address (s-…), session id (or unique prefix), or directory path (e.g. ~/dev/repo)",
+          "Target session(s): name, address (s-…), session id (or unique prefix), or directory " +
+          "path (e.g. ~/dev/repo). An array sends the same body to each (max 8); any unresolvable " +
+          "target fails the whole send before anything is delivered.",
       }),
       body: Type.String({ description: "Plain-text message body (≤ 32 KiB)" }),
       reply_to: Type.Optional(
@@ -156,33 +159,46 @@ export default function (pi: ExtensionAPI) {
       ),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const target = resolveTarget(root, params.to, ctx.cwd);
+      // Resolve everything before depositing anything: an unresolvable target
+      // fails the whole send, never a partial delivery.
+      const targets = resolveTargets(
+        root,
+        Array.isArray(params.to) ? params.to : [params.to],
+        ctx.cwd,
+      );
       const replyTo =
         params.reply_to === "none" ? undefined : (params.reply_to ?? selfAddress);
-      let message: Message;
-      try {
-        message = createMessage({ from: senderFrom(ctx), body: params.body, replyTo });
-      } catch (error) {
-        throw error instanceof Error ? error : new Error(String(error));
+      const deposits: { target: (typeof targets)[number]; message: Message; path: string; live: boolean }[] = [];
+      for (const target of targets) {
+        const message = createMessage({ from: senderFrom(ctx), body: params.body, replyTo });
+        let path: string;
+        try {
+          path = deposit(root, target.address, message);
+        } catch (error) {
+          if (error instanceof BacklogFullError && deposits.length > 0) {
+            const placed = deposits.map((d) => d.target.address).join(", ");
+            throw new Error(`${error.message} (already deposited for: ${placed})`);
+          }
+          throw error;
+        }
+        const live = target.record ? presence(target.record) === "live" : false;
+        deposits.push({ target, message, path, live });
       }
-      let path: string;
-      try {
-        path = deposit(root, target.address, message);
-      } catch (error) {
-        if (error instanceof BacklogFullError) throw error;
-        throw error;
-      }
-      const live = target.record ? presence(target.record) === "live" : false;
-      const consumed = live ? await awaitConsumption(path) : false;
-      const status = consumed ? "delivered" : "queued";
+      const consumed = await Promise.all(
+        deposits.map((d) => (d.live ? awaitConsumption(d.path) : Promise.resolve(false))),
+      );
+      const receipts = deposits.map((d, i) => ({
+        status: consumed[i] ? ("delivered" as const) : ("queued" as const),
+        address: d.target.address,
+        messageId: d.message.id,
+      }));
+      const lines = deposits.map(
+        (d, i) =>
+          `${consumed[i] ? "Delivered to" : "Queued for"} ${d.target.display} (${d.target.address}).`,
+      );
       return {
-        content: [
-          {
-            type: "text",
-            text: `${status === "delivered" ? "Delivered to" : "Queued for"} ${target.display} (${target.address}).`,
-          },
-        ],
-        details: { status, address: target.address, messageId: message.id },
+        content: [{ type: "text", text: lines.join("\n") }],
+        details: { receipts },
       };
     },
   });
