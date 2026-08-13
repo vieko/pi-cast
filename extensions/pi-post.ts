@@ -5,7 +5,6 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { basename } from "node:path";
 import type { FSWatcher } from "node:fs";
 import { canonicalPath, sessionAddress } from "../src/address.ts";
 import { createMessage, type Message } from "../src/message.ts";
@@ -22,6 +21,7 @@ import {
 import { formatDelivery, formatListing } from "../src/format.ts";
 import { inboundMode, LoopGuard } from "../src/policy.ts";
 import {
+  defaultSessionName,
   listRecords,
   markOffline,
   presence,
@@ -86,7 +86,7 @@ export default function (pi: ExtensionAPI) {
     const sessionId = ctx.sessionManager.getSessionId();
     const canonical = canonicalPath(ctx.cwd);
     selfAddress = sessionAddress(sessionId);
-    selfName = pi.getSessionName() ?? basename(canonical);
+    selfName = pi.getSessionName() ?? defaultSessionName(canonical, selfAddress);
 
     ensureDirs(root, selfAddress);
     writeRecord(root, {

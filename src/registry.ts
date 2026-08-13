@@ -1,12 +1,12 @@
 import { readdirSync, readFileSync, unlinkSync, writeFileSync, renameSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { registryDir } from "./mailbox.ts";
 
 export interface SessionRecord {
   v: 1;
   address: string;
   sessionId: string;
-  /** Display name: pi session name when set, else the cwd's basename. */
+  /** Display name: pi session name when set, else `defaultSessionName`. */
   name: string;
   cwd: string;
   pid?: number;
@@ -15,6 +15,18 @@ export interface SessionRecord {
 }
 
 export type Presence = "live" | "offline";
+
+/**
+ * Default display name for an unnamed session: cwd basename plus a short
+ * address tail, so concurrent unnamed sessions in one repository stay
+ * distinguishable (`gtm-4ee4`, not `gtm` × 17). The tail comes from the
+ * address, so it is stable across restarts and resumes. Resolution is
+ * unaffected: the bare basename still matches via the cwd fallback, and the
+ * full default name matches exactly.
+ */
+export function defaultSessionName(cwd: string, address: string): string {
+  return `${basename(cwd)}-${address.slice(2, 6)}`;
+}
 
 /** A record outlives the process that wrote it; shutdown marks, never removes. */
 export function writeRecord(root: string, record: SessionRecord): void {

@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { createMessage } from "../src/message.ts";
 import { deposit, queuedCount } from "../src/mailbox.ts";
 import {
+  defaultSessionName,
   listRecords,
   markOffline,
   presence,
@@ -30,6 +31,15 @@ function record(overrides: Partial<SessionRecord> = {}): SessionRecord {
     ...overrides,
   };
 }
+
+test("the default name is the cwd basename plus an address tail, stable and distinct", () => {
+  assert.equal(defaultSessionName("/Users/x/dev/gtm", "s-4ee4233e83c0"), "gtm-4ee4");
+  // Two unnamed sessions in the same repository get different names.
+  assert.notEqual(
+    defaultSessionName("/Users/x/dev/gtm", "s-4ee4233e83c0"),
+    defaultSessionName("/Users/x/dev/gtm", "s-a393f9c85744"),
+  );
+});
 
 test("a record outlives the process: shutdown marks offline, never removes", () => {
   const root = newRoot();

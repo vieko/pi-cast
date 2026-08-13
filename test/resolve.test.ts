@@ -70,6 +70,17 @@ test("a unique session name resolves; liveness breaks name ties", () => {
   assert.throws(() => resolveTarget(root, "gtm"), AmbiguousTargetError);
 });
 
+test("a default-shaped name (basename-tail) resolves exactly; the bare basename still works", () => {
+  const root = newRoot();
+  writeRecord(root, record({ address: "s-aaaaaaaaaaaa", name: "gtm-aaaa", cwd: "/dev/gtm", pid: process.pid }));
+  writeRecord(root, record({ address: "s-bbbbbbbbbbbb", name: "gtm-bbbb", cwd: "/elsewhere/gtm", pid: process.pid }));
+  // The suffixed default name is a unique handle even with two sessions in play…
+  assert.equal(resolveTarget(root, "gtm-aaaa").address, "s-aaaaaaaaaaaa");
+  assert.equal(resolveTarget(root, "gtm-bbbb").address, "s-bbbbbbbbbbbb");
+  // …while the bare basename keeps its cwd-fallback semantics: refuse a tie.
+  assert.throws(() => resolveTarget(root, "gtm"), AmbiguousTargetError);
+});
+
 test("an unknown name is an error, not a silent mailbox", () => {
   const root = newRoot();
   assert.throws(() => resolveTarget(root, "nonesuch"), UnknownTargetError);
