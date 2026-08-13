@@ -191,23 +191,37 @@ export default function (pi: ExtensionAPI) {
     name: "list_sessions",
     label: "List Sessions",
     description:
-      "List pi sessions known to pi-post: their names, addresses, presence (live/offline), " +
-      "queued mail counts, and each session's resume handle ([pi --session …], run from the " +
-      "listed directory). Any directory path is also a valid send_message target even if " +
-      "nothing is listed for it.",
+      "List pi sessions known to pi-post: their names, addresses, presence (live/offline, " +
+      "with age), queued mail counts, and each session's resume handle ([pi --session …], run " +
+      "from the listed directory). Live sessions come first; offline sessions unseen for over " +
+      "a day are collapsed into a count unless all is set. Any directory path is also a valid " +
+      "send_message target even if nothing is listed for it.",
     promptSnippet:
       "List pi sessions reachable by message, with presence, queued mail, and resume handles",
-    parameters: Type.Object({}),
-    async execute() {
-      const text = formatListing(root, listRecords(root), selfAddress);
+    parameters: Type.Object({
+      all: Type.Optional(
+        Type.Boolean({
+          description: "Also list offline sessions unseen for over a day (collapsed by default)",
+        }),
+      ),
+    }),
+    async execute(_toolCallId, params) {
+      const text = formatListing(root, listRecords(root), selfAddress, {
+        all: params.all,
+        allHint: "all: true",
+      });
       return { content: [{ type: "text", text }], details: {} };
     },
   });
 
   pi.registerCommand("peers", {
-    description: "List pi sessions reachable by message, without spending a model turn",
-    handler: async (_args, ctx) => {
-      ctx.ui.notify(formatListing(root, listRecords(root), selfAddress), "info");
+    description: "List pi sessions reachable by message, without spending a model turn (`/peers all` includes stale offline sessions)",
+    handler: async (args, ctx) => {
+      const all = typeof args === "string" && args.trim() === "all";
+      ctx.ui.notify(
+        formatListing(root, listRecords(root), selfAddress, { all, allHint: "/peers all" }),
+        "info",
+      );
     },
   });
 

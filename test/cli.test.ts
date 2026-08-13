@@ -155,3 +155,27 @@ test("whoami prints the same session address the extension would register", () =
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), sessionAddress("sess-xyz"));
 });
+
+test("list is live-first with ages; --all reveals collapsed stale sessions", () => {
+  const root = newRoot();
+  registerSession(root, mkdtempSync(join(tmpdir(), "post-cli-target-")), "s-aaaaaaaaaaaa");
+  const stale: SessionRecord = {
+    v: 1,
+    address: "s-bbbbbbbbbbbb",
+    sessionId: "sid-2",
+    name: "stale",
+    cwd: "/x",
+    startedAt: 0,
+    lastSeen: Date.now() - 3 * 24 * 3600_000,
+  };
+  writeRecord(root, stale);
+
+  const short = run(root, ["list"]);
+  assert.equal(short.status, 0, short.stderr);
+  assert.match(short.stdout, /target .*\(offline just now\)/);
+  assert.doesNotMatch(short.stdout, /^stale/m);
+  assert.match(short.stdout, /and 1 offline session unseen for over a day \(--all lists them\)/);
+
+  const full = run(root, ["list", "--all"]);
+  assert.match(full.stdout, /stale .*\(offline 3d ago\)/);
+});

@@ -32,16 +32,58 @@ export function resumeHandle(sessionId: string): string {
   return sessionId.length > 18 ? sessionId.slice(0, 18) : sessionId;
 }
 
-export function formatListing(root: string, records: SessionRecord[], selfAddress?: string): string {
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Compact relative age for offline rows: `5m ago`, `3h ago`, `2d ago`. */
+export function relativeAge(lastSeen: number, now = Date.now()): string {
+  const minutes = Math.round(Math.max(0, now - lastSeen) / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+export interface ListingOptions {
+  /** Show every record. The default collapses offline sessions unseen for over a day. */
+  all?: boolean;
+  /** How this caller asks for everything, e.g. `all: true` or `--all`. */
+  allHint?: string;
+}
+
+export function formatListing(
+  root: string,
+  records: SessionRecord[],
+  selfAddress?: string,
+  options: ListingOptions = {},
+): string {
+  const now = Date.now();
+  const sorted = [...records].sort((a, b) => {
+    const liveDelta = Number(presence(b) === "live") - Number(presence(a) === "live");
+    return liveDelta || b.lastSeen - a.lastSeen;
+  });
   const lines: string[] = [];
-  for (const record of [...records].sort((a, b) => b.lastSeen - a.lastSeen)) {
-    const self = record.address === selfAddress ? " [self]" : "";
+  let hidden = 0;
+  for (const record of sorted) {
+    const live = presence(record) === "live";
     const queued = queuedCount(root, record.address);
+    const self = record.address === selfAddress;
+    // Stale offline rows collapse into a count — unless they hold mail
+    // (mail outranks tidiness) or the caller asked for everything.
+    if (!options.all && !live && !self && queued === 0 && now - record.lastSeen > DAY_MS) {
+      hidden++;
+      continue;
+    }
+    const state = live ? "live" : `offline ${relativeAge(record.lastSeen, now)}`;
     const mail = queued > 0 ? `, ${queued} queued` : "";
     lines.push(
-      `${record.name} — ${record.address} (${presence(record)}${mail})${self} ${record.cwd} ` +
+      `${record.name} — ${record.address} (${state}${mail})${self ? " [self]" : ""} ${record.cwd} ` +
         `[pi --session ${resumeHandle(record.sessionId)}]`,
     );
+  }
+  if (hidden > 0) {
+    const plural = hidden === 1 ? "session" : "sessions";
+    lines.push(`… and ${hidden} offline ${plural} unseen for over a day (${options.allHint ?? "all"} lists them)`);
   }
   if (lines.length === 0) lines.push("No registered sessions.");
   lines.push(

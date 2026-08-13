@@ -136,10 +136,15 @@ function resolveTarget(target) {
 
 function parseArgs(argv) {
   const args = { _: [] };
+  const flags = new Set(["all"]);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg.startsWith("--")) {
       const key = arg.slice(2);
+      if (flags.has(key)) {
+        args[key] = true;
+        continue;
+      }
       args[key] = argv[i + 1];
       i++;
     } else {
@@ -223,19 +228,47 @@ function queuedCount(address) {
   }
 }
 
-function list() {
-  const records = listRecords().sort((a, b) => b.lastSeen - a.lastSeen);
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Compact relative age for offline rows: `5m ago`, `3h ago`, `2d ago`. */
+function relativeAge(lastSeen, now = Date.now()) {
+  const minutes = Math.round(Math.max(0, now - lastSeen) / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+function list(args) {
+  const now = Date.now();
+  const records = listRecords().sort((a, b) => {
+    const liveDelta = Number(isLive(b)) - Number(isLive(a));
+    return liveDelta || b.lastSeen - a.lastSeen;
+  });
   if (records.length === 0) {
     console.log("No registered sessions.");
     return;
   }
+  let hidden = 0;
   for (const record of records) {
+    const live = isLive(record);
     const queued = queuedCount(record.address);
+    // Stale offline rows collapse into a count — unless they hold mail.
+    if (!args.all && !live && queued === 0 && now - record.lastSeen > DAY_MS) {
+      hidden++;
+      continue;
+    }
+    const state = live ? "live" : `offline ${relativeAge(record.lastSeen, now)}`;
     const mail = queued > 0 ? `, ${queued} queued` : "";
     console.log(
-      `${record.name} — ${record.address} (${isLive(record) ? "live" : "offline"}${mail}) ${record.cwd} ` +
+      `${record.name} — ${record.address} (${state}${mail}) ${record.cwd} ` +
         `[pi --session ${resumeHandle(record.sessionId)}]`,
     );
+  }
+  if (hidden > 0) {
+    const plural = hidden === 1 ? "session" : "sessions";
+    console.log(`… and ${hidden} offline ${plural} unseen for over a day (--all lists them)`);
   }
 }
 
@@ -298,7 +331,7 @@ switch (command) {
     await send(args);
     break;
   case "list":
-    list();
+    list(args);
     break;
   case "resolve":
     resolveCmd(args);
@@ -311,6 +344,6 @@ switch (command) {
     break;
   default:
     console.log("usage: pi-post send --to <target> [--body <text>] [--from <label>] [--reply-to <addr>|none]");
-    console.log("       pi-post list | resolve <target> | peek <target> | whoami");
+    console.log("       pi-post list [--all] | resolve <target> | peek <target> | whoami");
     process.exit(command ? 1 : 0);
 }
