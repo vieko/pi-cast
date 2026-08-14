@@ -231,12 +231,12 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.registerCommand("peers", {
-    description: "List pi sessions reachable by message, without spending a model turn (`/peers all` includes stale offline sessions)",
+  pi.registerCommand("sessions", {
+    description: "List pi sessions reachable by message, without spending a model turn (`/sessions all` includes stale offline sessions)",
     handler: async (args, ctx) => {
       const all = typeof args === "string" && args.trim() === "all";
       ctx.ui.notify(
-        formatListing(root, listRecords(root), selfAddress, { all, allHint: "/peers all" }),
+        formatListing(root, listRecords(root), selfAddress, { all, allHint: "/sessions all" }),
         "info",
       );
     },
