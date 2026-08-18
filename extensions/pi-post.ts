@@ -262,7 +262,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerMessageRenderer("pi-post", (entry, options, theme) => {
     const details = entry.details as { message?: Message } | undefined;
     const post = details?.message;
-    const header = theme.fg("accent", `✉ ${post?.from.name ?? "pi-post"}`);
+    const header = theme.fg("accent", `◆ ${theme.bold(post?.from.name ?? "pi-post")}`);
     if (!options.expanded && post) {
       const preview = post.body.split("\n")[0] ?? "";
       return new Text(`${header} ${theme.fg("muted", preview)}`, 0, 0);
