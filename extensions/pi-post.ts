@@ -88,6 +88,10 @@ export default function (pi: ExtensionAPI) {
     const canonical = canonicalPath(ctx.cwd);
     selfAddress = sessionAddress(sessionId);
     selfName = pi.getSessionName() ?? defaultSessionName(canonical, selfAddress);
+    // Expose the address to child processes (bash tools inherit process.env),
+    // so scripts can capture a send_message target without shelling out to
+    // `pi-post whoami` or re-deriving the hash from PI_SESSION_ID.
+    process.env.PI_SESSION_ADDRESS = selfAddress;
 
     ensureDirs(root, selfAddress);
     writeRecord(root, {

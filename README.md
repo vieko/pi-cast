@@ -145,6 +145,11 @@ sessions can read state; only one can consume a message.
 | `PI_POST_FROM` | — | Default `--from` label for the CLI |
 | `PI_POST_REPLY_TO` | — | Default `--reply-to` address for the CLI |
 
+The extension also *sets* one variable: `PI_SESSION_ADDRESS`, the session's
+own `s-…` address, exported at session start so child processes (bash tools,
+spawned scripts) can capture a reply target without shelling out to
+`pi-post whoami`.
+
 The directory is created `0700` and messages `0600`.
 
 ## Limits
