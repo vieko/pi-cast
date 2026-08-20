@@ -103,11 +103,11 @@ export default function (pi: ExtensionAPI) {
     sweepRegistry(root);
     sweepInboxes(root);
 
-    // Queued mail waits in context for the first prompt; it never starts a turn.
+    // Queued messages wait in context for the first prompt; they never start a turn.
     await drainAll(ctx, "nextTurn");
 
-    const onMail = () => void drainAll(ctx, "steer");
-    watchers = [watchInbox(root, selfAddress, onMail)];
+    const onMessage = () => void drainAll(ctx, "steer");
+    watchers = [watchInbox(root, selfAddress, onMessage)];
     heartbeat = setInterval(() => selfAddress && touchRecord(root, selfAddress), HEARTBEAT_MS);
     heartbeat.unref?.();
   });
@@ -209,12 +209,12 @@ export default function (pi: ExtensionAPI) {
     label: "List Sessions",
     description:
       "List pi sessions known to pi-post: their names, addresses, presence (live/offline, " +
-      "with age), queued mail counts, and each session's resume handle ([pi --session …], run " +
+      "with age), queued message counts, and each session's resume handle ([pi --session …], run " +
       "from the listed directory). Live sessions come first; offline sessions unseen for over " +
       "a day are collapsed into a count unless all is set. Any directory path is also a valid " +
       "send_message target even if nothing is listed for it.",
     promptSnippet:
-      "List pi sessions reachable by message, with presence, queued mail, and resume handles",
+      "List pi sessions reachable by message, with presence, queued messages, and resume handles",
     parameters: Type.Object({
       all: Type.Optional(
         Type.Boolean({

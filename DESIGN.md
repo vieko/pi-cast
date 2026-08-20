@@ -51,9 +51,9 @@ is directory information, not lifecycle management — pi-post still
 never spawns or resumes anything itself.
 
 v0.2.0 had a second kind — standing addresses, one per directory, so
-mail could wait for sessions that did not exist yet. Removed in v0.3.0:
+messages could wait for sessions that did not exist yet. Removed in v0.3.0:
 in a busy repository, directory identity is not task identity, so
-standing mail raced among concurrent sessions, delivered to the wrong
+standing messages raced among concurrent sessions, delivered to the wrong
 successor, and — because consumption is the receipt — misdelivered
 *silently and destructively*. The lesson is recorded as a non-goal
 below: how sessions come to exist is not the transport's business.
@@ -93,11 +93,11 @@ One message per file, named `<sentAt ms, 13 digits>-<8 hex nonce>.json`:
    it. Nothing is delivered twice; consumption is the receipt.
 5. Each message passes the inbound guard (mode + loop caps), then enters
    context wrapped in the boundary preamble:
-   - live mail → `deliverAs: "steer"`, `triggerTurn: true` — lands between
+   - live messages → `deliverAs: "steer"`, `triggerTurn: true` — land between
      tool calls; **wakes an idle session**, so a freshly spawned worker's
      first turn can be the brief itself
    - startup/resume drain → `deliverAs: "nextTurn"` — waits in context for
-     the next prompt; queued mail never starts a turn on its own
+     the next prompt; a queued message never starts a turn on its own
 
 ## The boundary
 
@@ -116,8 +116,8 @@ Each is pinned by a test.
 - **A reader never sees half a message.** Rename-into-place; only
   `.json` is read.
 - **Nothing is delivered twice.** Unlink before handling.
-- **Mail outranks tidiness.** No sweep deletes a non-empty mailbox, and
-  queued mail pins the target's registry record: a record is swept only
+- **Messages outrank tidiness.** No sweep deletes a non-empty mailbox, and
+  queued messages pin the target's registry record: a record is swept only
   when it is offline, stale (7 days), *and* its mailbox is empty. Empty
   inbox directories no record names are removed.
 - **Loops terminate structurally.** Identical body from one sender inside

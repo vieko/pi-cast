@@ -16,7 +16,7 @@ import {
 } from "../src/mailbox.ts";
 
 const from = { kind: "process" as const, name: "test" };
-const newRoot = () => mkdtempSync(join(tmpdir(), "post-mail-"));
+const newRoot = () => mkdtempSync(join(tmpdir(), "pi-post-"));
 const ADDR = "s-cccccccccccc";
 
 test("deposit then drain: oldest first, exactly once", () => {

@@ -74,16 +74,16 @@ test("offline sessions unseen for over a day collapse into a count; all lists th
   assert.match(full, /stale-2 .*\(offline 9d ago\)/);
 });
 
-test("queued mail and self are never collapsed, however stale", () => {
+test("queued messages and self are never collapsed, however stale", () => {
   const root = newRoot();
   const staleAge = Date.now() - 5 * 24 * 3600_000;
   deposit(root, "s-cccccccccccc", createMessage({ from: { kind: "process", name: "t" }, body: "waits" }));
   const records = [
-    record({ address: "s-cccccccccccc", name: "has-mail", pid: undefined, lastSeen: staleAge }),
+    record({ address: "s-cccccccccccc", name: "has-messages", pid: undefined, lastSeen: staleAge }),
     record({ address: "s-dddddddddddd", name: "stale-self", pid: undefined, lastSeen: staleAge }),
   ];
   const listing = formatListing(root, records, "s-dddddddddddd");
-  assert.match(listing, /has-mail .*1 queued/);
+  assert.match(listing, /has-messages .*1 queued/);
   assert.match(listing, /stale-self .*\[self\]/);
 });
 

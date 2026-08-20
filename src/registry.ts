@@ -93,7 +93,7 @@ export function presence(record: SessionRecord): Presence {
 
 /**
  * Remove registry records for sessions that are offline and stale. A record
- * whose mailbox holds mail is never swept: queued mail would still deliver on
+ * whose mailbox holds messages is never swept: queued messages would still deliver on
  * resume (the address derives from the session id), but losing the record
  * hides the queued count and breaks name/path resolution to the target.
  */
@@ -102,7 +102,7 @@ export function sweepRegistry(root: string, maxAgeMs = 7 * 24 * 60 * 60 * 1000):
   for (const record of listRecords(root)) {
     if (presence(record) !== "offline") continue;
     if (now - record.lastSeen <= maxAgeMs) continue;
-    if (queuedCount(root, record.address) > 0) continue; // mail keeps the record alive
+    if (queuedCount(root, record.address) > 0) continue; // queued messages keep the record alive
     try {
       unlinkSync(join(registryDir(root), `${record.address}.json`));
     } catch {
@@ -114,8 +114,8 @@ export function sweepRegistry(root: string, maxAgeMs = 7 * 24 * 60 * 60 * 1000):
 /**
  * Remove empty inbox directories that no registry record names (orphans from
  * swept records or removed address schemes). `rmdirSync` refuses non-empty
- * directories, so queued mail or a mid-flight `.tmp` deposit blocks removal
- * structurally — mail outranks tidiness.
+ * directories, so a queued message or a mid-flight `.tmp` deposit blocks removal
+ * structurally — messages outrank tidiness.
  */
 export function sweepInboxes(root: string): void {
   const known = new Set(listRecords(root).map((r) => r.address));

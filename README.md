@@ -39,7 +39,7 @@ smuggling state between sessions.
 
 **An address that outlives the process.** A session address names a
 conversation, not a process: the same session resumed tomorrow answers to
-the same address, and mail queued while it was closed lands in-context on
+the same address, and messages queued while it was closed land in-context on
 resume. A directory path as a target is a *query* — it resolves to the
 session registered in that directory, live sessions first, ambiguity
 refused.
@@ -52,15 +52,15 @@ you is a dead end: anything you can see, you can message *and* reopen.
 
 **Wake-on-idle delivery.** A message to an idle session starts its turn.
 Spawn a worker in its worktree, send the brief — the brief *is* the
-worker's first turn. No "check your mail" incantations.
+worker's first turn. No "check your messages" incantations.
 
 **Two tools.** `send_message` sends text to a session, path, address, or
 session id and reports **delivered** (consumed now) or **queued** (waiting
-on disk). `list_sessions` shows known sessions, presence, queued mail, and
+on disk). `list_sessions` shows known sessions, presence, queued messages, and
 resume handles. `/inbox` peeks without consuming.
 
 **A CLI for everything that isn't a pi session.** `pi-post send` lets an
-autonomous run's exit hook, a Claude Code hook, or any script mail a
+autonomous run's exit hook, a Claude Code hook, or any script message a
 session. `--reply-to` defaults from `PI_SESSION_ID`, so a message sent from
 inside a pi bash tool routes replies home automatically.
 
@@ -81,7 +81,7 @@ Nothing to enable; every session registers itself on startup.
 | Surface | Effect |
 |---|---|
 | `send_message` (tool) | Send text to one or more sessions (name, path, address, or session id); reports **delivered** or **queued** per target |
-| `list_sessions` (tool) | Known sessions, live first with ages, queued mail counts, resume handles; stale offline rows collapse unless `all` |
+| `list_sessions` (tool) | Known sessions, live first with ages, queued message counts, resume handles; stale offline rows collapse unless `all` |
 | `/inbox` | Peek at this session's queued messages without consuming them |
 | `/sessions` | The `list_sessions` listing, without spending a model turn |
 | `pi-post send` (CLI) | Send from any process: `--to` (repeatable), `--body`/stdin, `--from`, `--reply-to` |
@@ -195,7 +195,8 @@ before changing behavior, and never weaken a case to make a change pass.
 - [pi-intercom](https://www.npmjs.com/package/pi-intercom) -- broker-based
   1:1 session messaging with a TUI overlay and pi-subagents integration.
 - [pi-messenger](https://www.npmjs.com/package/pi-messenger) -- a shared
-  chat room with file reservations, built for swarms rather than mail.
+  chat room with file reservations, built for swarms rather than
+  point-to-point messaging.
 
 ## Development
 

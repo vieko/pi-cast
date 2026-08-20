@@ -277,15 +277,15 @@ function list(args) {
   for (const record of records) {
     const live = isLive(record);
     const queued = queuedCount(record.address);
-    // Stale offline rows collapse into a count — unless they hold mail.
+    // Stale offline rows collapse into a count — unless they hold messages.
     if (!args.all && !live && queued === 0 && now - record.lastSeen > DAY_MS) {
       hidden++;
       continue;
     }
     const state = live ? "live" : `offline ${relativeAge(record.lastSeen, now)}`;
-    const mail = queued > 0 ? `, ${queued} queued` : "";
+    const queuedNote = queued > 0 ? `, ${queued} queued` : "";
     console.log(
-      `${record.name} — ${record.address} (${state}${mail}) ${record.cwd} ` +
+      `${record.name} — ${record.address} (${state}${queuedNote}) ${record.cwd} ` +
         `[pi --session ${resumeHandle(record.sessionId)}]`,
     );
   }

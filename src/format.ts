@@ -68,16 +68,16 @@ export function formatListing(
     const live = presence(record) === "live";
     const queued = queuedCount(root, record.address);
     const self = record.address === selfAddress;
-    // Stale offline rows collapse into a count — unless they hold mail
-    // (mail outranks tidiness) or the caller asked for everything.
+    // Stale offline rows collapse into a count — unless they hold messages
+    // (messages outrank tidiness) or the caller asked for everything.
     if (!options.all && !live && !self && queued === 0 && now - record.lastSeen > DAY_MS) {
       hidden++;
       continue;
     }
     const state = live ? "live" : `offline ${relativeAge(record.lastSeen, now)}`;
-    const mail = queued > 0 ? `, ${queued} queued` : "";
+    const queuedNote = queued > 0 ? `, ${queued} queued` : "";
     lines.push(
-      `${record.name} — ${record.address} (${state}${mail})${self ? " [self]" : ""} ${record.cwd} ` +
+      `${record.name} — ${record.address} (${state}${queuedNote})${self ? " [self]" : ""} ${record.cwd} ` +
         `[pi --session ${resumeHandle(record.sessionId)}]`,
     );
   }
