@@ -1,6 +1,6 @@
 {
   "name": "pi-post",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Messages between pi sessions — delivered mid-task or queued until they return.",
   "keywords": [
     "pi-package",
