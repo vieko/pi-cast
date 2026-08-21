@@ -6,6 +6,8 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import type { FSWatcher } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 import { canonicalPath, sessionAddress } from "../src/address.ts";
 import { createMessage, type Message } from "../src/message.ts";
 import {
@@ -31,8 +33,10 @@ import {
   writeRecord,
 } from "../src/registry.ts";
 import { resolveTargets } from "../src/resolve.ts";
+import { ensureCliShim } from "../src/cli-shim.ts";
 
 const HEARTBEAT_MS = 30_000;
+const CLI_TARGET = resolve(dirname(fileURLToPath(import.meta.url)), "../bin/pi-post.mjs");
 
 export default function (pi: ExtensionAPI) {
   const root = postRoot();
@@ -94,6 +98,7 @@ export default function (pi: ExtensionAPI) {
     process.env.PI_SESSION_ADDRESS = selfAddress;
 
     ensureDirs(root, selfAddress);
+    ensureCliShim(root, CLI_TARGET);
     writeRecord(root, {
       v: 1,
       address: selfAddress,

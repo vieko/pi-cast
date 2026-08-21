@@ -74,7 +74,7 @@ inert.
 pi install npm:pi-post
 ```
 
-Nothing to enable; every session registers itself on startup.
+Nothing to enable; every session registers itself on startup. Once a session has started, the CLI is also available at `~/.pi/agent/post/bin/pi-post` for hooks and scripts on hosts where `pi-post` is not on `PATH`.
 
 ## Use
 
